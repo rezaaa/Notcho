@@ -1,0 +1,187 @@
+import Foundation
+import Combine
+
+@MainActor
+class TaskDataManager: ObservableObject {
+    @Published var categories: [TaskCategory] = []
+    @Published var hideCompleted: Bool = false
+
+    private let storageKey = "notchtasks.categories"
+    private let hideCompletedKey = "notchtasks.hideCompleted"
+
+    init() {
+        loadData()
+        loadSettings()
+
+        // Add sample data if empty
+        // if categories.isEmpty {
+        //     createSampleData()
+        // }
+    }
+
+    // MARK: - Data Persistence
+
+    func loadData() {
+        guard let data = UserDefaults.standard.data(forKey: storageKey),
+              let decoded = try? JSONDecoder().decode([TaskCategory].self, from: data) else {
+            return
+        }
+        categories = decoded.sorted { $0.order < $1.order }
+    }
+
+    func saveData() {
+        guard let encoded = try? JSONEncoder().encode(categories) else { return }
+        UserDefaults.standard.set(encoded, forKey: storageKey)
+    }
+
+    func loadSettings() {
+        hideCompleted = UserDefaults.standard.bool(forKey: hideCompletedKey)
+    }
+
+    func saveSettings() {
+        UserDefaults.standard.set(hideCompleted, forKey: hideCompletedKey)
+    }
+
+    // MARK: - Category Operations
+
+    func addCategory(title: String, iconName: String, color: CategoryColor) {
+        let order = categories.count
+        let category = TaskCategory(title: title, iconName: iconName, color: color, order: order)
+        categories.append(category)
+        saveData()
+    }
+
+    func updateCategory(id: UUID, title: String? = nil, iconName: String? = nil, color: CategoryColor? = nil) {
+        guard let index = categories.firstIndex(where: { $0.id == id }) else { return }
+
+        if let title = title {
+            categories[index].title = title
+        }
+        if let iconName = iconName {
+            categories[index].iconName = iconName
+        }
+        if let color = color {
+            categories[index].color = color
+        }
+        saveData()
+    }
+
+    func deleteCategory(id: UUID) {
+        categories.removeAll { $0.id == id }
+        reorderCategories()
+        saveData()
+    }
+
+    func reorderCategories(from source: IndexSet, to destination: Int) {
+        categories.move(fromOffsets: source, toOffset: destination)
+        for (index, _) in categories.enumerated() {
+            categories[index].order = index
+        }
+        saveData()
+    }
+
+    private func reorderCategories() {
+        for (index, _) in categories.enumerated() {
+            categories[index].order = index
+        }
+    }
+
+    // MARK: - Task Operations
+
+    func addTask(to categoryId: UUID, title: String) {
+        guard let index = categories.firstIndex(where: { $0.id == categoryId }) else { return }
+
+        let task = TaskItem(title: title)
+        categories[index].tasks.append(task)
+        saveData()
+    }
+
+    func updateTask(categoryId: UUID, taskId: UUID, title: String?, isCompleted: Bool?) {
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }),
+              let taskIndex = categories[categoryIndex].tasks.firstIndex(where: { $0.id == taskId }) else {
+            return
+        }
+
+        if let title = title {
+            categories[categoryIndex].tasks[taskIndex].title = title
+        }
+        if let isCompleted = isCompleted {
+            categories[categoryIndex].tasks[taskIndex].isCompleted = isCompleted
+        }
+        saveData()
+    }
+
+    func toggleTask(categoryId: UUID, taskId: UUID) {
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }),
+              let taskIndex = categories[categoryIndex].tasks.firstIndex(where: { $0.id == taskId }) else {
+            return
+        }
+
+        categories[categoryIndex].tasks[taskIndex].isCompleted.toggle()
+        saveData()
+    }
+
+    func deleteTask(categoryId: UUID, taskId: UUID) {
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else {
+            return
+        }
+
+        categories[categoryIndex].tasks.removeAll { $0.id == taskId }
+        saveData()
+    }
+
+    // MARK: - Statistics
+
+    var totalTasks: Int {
+        categories.reduce(0) { $0 + $1.tasks.count }
+    }
+
+    var totalIncompleteTasks: Int {
+        categories.reduce(0) { $0 + $1.incompleteTasks.count }
+    }
+
+    var totalCompletedTasks: Int {
+        categories.reduce(0) { $0 + $1.completedTasks.count }
+    }
+
+    // MARK: - Sample Data
+
+    private func createSampleData() {
+        let workCategory = TaskCategory(
+            title: "Work",
+            iconName: "briefcase",
+            color: .blue,
+            order: 0,
+            tasks: [
+                TaskItem(title: "Review PRD document"),
+                TaskItem(title: "Update project timeline"),
+                TaskItem(title: "Team standup meeting")
+            ]
+        )
+
+        let personalCategory = TaskCategory(
+            title: "Personal",
+            iconName: "house",
+            color: .purple,
+            order: 1,
+            tasks: [
+                TaskItem(title: "Grocery shopping"),
+                TaskItem(title: "Call dentist")
+            ]
+        )
+
+        let fitnessCategory = TaskCategory(
+            title: "Fitness",
+            iconName: "figure.run",
+            color: .green,
+            order: 2,
+            tasks: [
+                TaskItem(title: "Morning run"),
+                TaskItem(title: "Yoga session")
+            ]
+        )
+
+        categories = [workCategory, personalCategory, fitnessCategory]
+        saveData()
+    }
+}
