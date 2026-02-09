@@ -38,7 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
         
-        // Show notch on launch
+        // Show notch on launch - using the new simplified API
         Task { @MainActor in
             await notchController.showNotch(with: dataManager)
         }
@@ -56,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 final class NotchController: ObservableObject {
     static let shared = NotchController()
     
-    private var mainNotch: DynamicNotch<NotchMainExpandedView, NotchMainCompactView, EmptyView>?
+    private var mainNotch: DynamicNotch<NotchMainExpandedView, EmptyView, EmptyView>?
     private weak var currentDataManager: TaskDataManager?
     @Published var isExpanded = false
     nonisolated(unsafe) private var clickMonitor: Any?
@@ -69,7 +69,7 @@ final class NotchController: ObservableObject {
         guard autoCloseTask == nil else { return }
         
         autoCloseTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             if !Task.isCancelled {
                 await hideNotch()
             }
@@ -89,15 +89,13 @@ final class NotchController: ObservableObject {
             mainNotch = DynamicNotch(style: .auto) {
                 NotchMainExpandedView(dataManager: dataManager)
             } compactLeading: {
-                NotchMainCompactView(
-                    taskCount: dataManager.totalIncompleteTasks,
-                    date: Date()
-                )
+                EmptyView()
             } compactTrailing: {
                 EmptyView()
             }
         }
         
+        // Show and expand the notch
         await mainNotch?.expand()
         isExpanded = true
         setupClickMonitor()
@@ -122,8 +120,15 @@ final class NotchController: ObservableObject {
     private func setupHoverMonitor(with dataManager: TaskDataManager) {
         removeHoverMonitor()
         
+        var lastUpdateTime: Date = Date.distantPast
+        
         hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self, weak dataManager] event in
             guard let self = self, let dataManager = dataManager else { return }
+            
+            // Throttle updates to prevent layout recursion
+            let now = Date()
+            guard now.timeIntervalSince(lastUpdateTime) > 0.1 else { return }
+            lastUpdateTime = now
             
             // Get the mouse location in screen coordinates
             let mouseLocation = NSEvent.mouseLocation
@@ -133,7 +138,7 @@ final class NotchController: ObservableObject {
             
             // Define hover trigger area at the top center of the screen (under notch)
             let triggerWidth: CGFloat = 180
-            let triggerHeight: CGFloat = 20
+            let triggerHeight: CGFloat = 25
             let triggerX = (screenFrame.width - triggerWidth) / 2
             let triggerY = screenFrame.height - triggerHeight
             
@@ -218,24 +223,5 @@ struct NotchMainExpandedView: View {
     var body: some View {
         ExpandedNotchView(dataManager: dataManager)
             .padding(8)
-            .onHover { isHovering in
-                if isHovering {
-                    NotchController.shared.cancelAutoCloseTimer()
-                } else {
-                    NotchController.shared.startAutoCloseTimer()
-                }
-            }
-            .onTapGesture {
-                // Prevent closing when clicking inside
-            }
-    }
-}
-
-struct NotchMainCompactView: View {
-    let taskCount: Int
-    let date: Date
-    
-    var body: some View {
-        CompactNotchView(taskCount: taskCount, date: date)
     }
 }

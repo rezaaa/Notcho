@@ -1,6 +1,4 @@
-// swift-tools-version: 6.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
-
+// swift-tools-version:5.9
 import PackageDescription
 
 let package = Package(
@@ -12,14 +10,15 @@ let package = Package(
         .executable(name: "NotchTasks", targets: ["NotchTasks"])
     ],
     dependencies: [
-        .package(url: "https://github.com/MrKai77/DynamicNotchKit", branch: "main")
+        .package(path: "LocalPackages/DynamicNotchKit")
     ],
     targets: [
         .executableTarget(
             name: "NotchTasks",
             dependencies: [
                 .product(name: "DynamicNotchKit", package: "DynamicNotchKit")
-            ]
+            ],
+            path: "Sources/NotchTasks"
         )
     ]
 )

@@ -152,37 +152,6 @@ struct ExpandedNotchView: View {
                             )
                     }
                     .buttonStyle(.plain)
-
-                    Button(action: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            showCategoryManager = true
-                        }
-                    }) {
-                        Image(systemName: "rectangle.3.group")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.5))
-                            .frame(width: 28, height: 28)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .fill(Color.white.opacity(0.08))
-                            )
-                    }
-                    .buttonStyle(.plain)
-
-                    // Quit app button
-                    Button(action: {
-                        NSApplication.shared.terminate(nil)
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.5))
-                            .frame(width: 28, height: 28)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .fill(Color.white.opacity(0.08))
-                            )
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 18)
@@ -222,6 +191,29 @@ struct ExpandedNotchView: View {
                             )
                         }
                     }
+
+                    // Manage Categories button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showCategoryManager = true
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "rectangle.3.group")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Manage Categories")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                                .foregroundColor(.white.opacity(0.25))
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -288,7 +280,7 @@ struct CategoryBoxView: View {
 
                 // Focus button
                 Button(action: onFocusToggle) {
-                    Image(systemName: isFocused ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    Image(systemName: isFocused ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(category.color.color.opacity(0.7))
                         .frame(width: 20, height: 20)
@@ -356,8 +348,8 @@ struct CategoryBoxView: View {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                         onAddTask(newTaskText)
                                         newTaskText = ""
-                                        isAddingTask = false
                                     }
+                                    isTextFieldFocused = true
                                 }
                             }
                             .onExitCommand {
@@ -366,6 +358,22 @@ struct CategoryBoxView: View {
                                     newTaskText = ""
                                 }
                             }
+
+                        if !newTaskText.isEmpty {
+                            Button(action: {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    onAddTask(newTaskText)
+                                    newTaskText = ""
+                                }
+                                isTextFieldFocused = true
+                            }) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(category.color.color)
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.scale.combined(with: .opacity))
+                        }
 
                         Button(action: {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
@@ -439,22 +447,27 @@ struct TaskRowView: View {
     @State private var isHoveringDelete = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             Button(action: onToggle) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(task.isCompleted ? accentColor : .white.opacity(0.3))
-                    .animation(.spring(response: 0.25, dampingFraction: 0.8), value: task.isCompleted)
+                HStack(spacing: 8) {
+                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(task.isCompleted ? accentColor : .white.opacity(0.3))
+                        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: task.isCompleted)
+
+                    Text(task.title)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(task.isCompleted ? 0.35 : 0.9))
+                        .strikethrough(task.isCompleted, color: .white.opacity(0.2))
+                        .lineLimit(2)
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 5)
+                .padding(.leading, 4)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-
-            Text(task.title)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(.white.opacity(task.isCompleted ? 0.35 : 0.9))
-                .strikethrough(task.isCompleted, color: .white.opacity(0.2))
-                .lineLimit(2)
-
-            Spacer(minLength: 0)
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
@@ -468,27 +481,18 @@ struct TaskRowView: View {
                     .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isHoveringDelete)
             }
             .buttonStyle(.plain)
+            .padding(.trailing, 4)
             .onHover { hovering in isHoveringDelete = hovering }
             .opacity(isHovering ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isHovering)
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(Color.white.opacity(isHovering ? 0.06 : 0))
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovering)
-        .contentShape(Rectangle())
         .onHover { hovering in
             isHovering = hovering
         }
-    }
-}
-
-#Preview {
-    ZStack {
-        Color.black
-        ExpandedNotchView(dataManager: TaskDataManager())
     }
 }

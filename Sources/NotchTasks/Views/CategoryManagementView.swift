@@ -380,10 +380,3 @@ struct CategoryEditRow: View {
         isEditing = false
     }
 }
-
-#Preview {
-    ZStack {
-        Color.black
-        CategoryManagementView(dataManager: TaskDataManager(), onDismiss: {})
-    }
-}

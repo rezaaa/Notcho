@@ -44,10 +44,3 @@ struct CompactNotchView: View {
         )
     }
 }
-
-#Preview {
-    ZStack {
-        Color.black
-        CompactNotchView(taskCount: 5, date: Date())
-    }
-}
