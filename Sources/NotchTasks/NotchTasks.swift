@@ -138,7 +138,7 @@ final class NotchController: ObservableObject {
             
             // Define hover trigger area at the top center of the screen (under notch)
             let triggerWidth: CGFloat = 180
-            let triggerHeight: CGFloat = 25
+            let triggerHeight: CGFloat = 20
             let triggerX = (screenFrame.width - triggerWidth) / 2
             let triggerY = screenFrame.height - triggerHeight
             
