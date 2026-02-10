@@ -2,7 +2,7 @@
 
 A beautiful macOS task manager that lives in your MacBook notch. Inspired by iOS Dynamic Island.
 
-![Uploading image.png…]()
+<img width="1728" height="1117" alt="image" src="https://github.com/user-attachments/assets/decede0b-637e-4582-b3bb-dd48efc96ec5" />
 
 
 ## Features
