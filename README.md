@@ -1,4 +1,4 @@
-# NotchOut
+# Notcho
 
 A beautiful macOS task manager that lives in your MacBook notch. Inspired by iOS Dynamic Island.
 
