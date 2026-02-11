@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct CategoryManagementView: View {
     @ObservedObject var dataManager: TaskDataManager
@@ -9,6 +10,9 @@ struct CategoryManagementView: View {
     @State private var newCategoryColor: CategoryColor = .blue
     @State private var isAddingCategory = false
     @FocusState private var isNewCategoryFieldFocused: Bool
+
+    @State private var draggedCategory: TaskCategory?
+    @State private var currentDragOffset: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,12 +35,15 @@ struct CategoryManagementView: View {
             .padding(.top, 18)
             .padding(.bottom, 14)
 
-            // Category list
+            // Category list - Using ScrollView with manual drag
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 10) {
                     ForEach(dataManager.categories) { category in
-                        CategoryEditRow(
+                        DraggableCategoryRow(
                             category: category,
+                            categories: $dataManager.categories,
+                            draggedCategory: $draggedCategory,
+                            currentDragOffset: $currentDragOffset,
                             onUpdate: { title, icon, color in
                                 dataManager.updateCategory(id: category.id, title: title, iconName: icon, color: color)
                             },
@@ -44,6 +51,9 @@ struct CategoryManagementView: View {
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                                     dataManager.deleteCategory(id: category.id)
                                 }
+                            },
+                            onReorder: { from, to in
+                                dataManager.reorderCategories(from: IndexSet(integer: from), to: to)
                             }
                         )
                     }
@@ -217,6 +227,15 @@ struct CategoryEditRow: View {
         VStack(spacing: 0) {
             // Display row — always visible
             HStack(spacing: 10) {
+                // Drag handle
+                if !isEditing {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(isHovering ? 0.5 : 0.25))
+                        .frame(width: 20)
+                        .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isHovering)
+                }
+
                 Image(systemName: isEditing ? editedIcon : category.iconName)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor((isEditing ? editedColor : category.color).color)
@@ -378,5 +397,149 @@ struct CategoryEditRow: View {
         originalIcon = editedIcon
         originalColor = editedColor
         isEditing = false
+    }
+}
+
+// MARK: - Draggable Category Row
+struct DraggableCategoryRow: View {
+    let category: TaskCategory
+    @Binding var categories: [TaskCategory]
+    @Binding var draggedCategory: TaskCategory?
+    @Binding var currentDragOffset: CGFloat
+    let onUpdate: (String?, String?, CategoryColor?) -> Void
+    let onDelete: () -> Void
+    let onReorder: (Int, Int) -> Void
+
+    @State private var isDragging = false
+
+    // Row height: padding (12*2=24) + content (28) + spacing (10) = 62
+    private let rowHeight: CGFloat = 62
+
+    private var currentIndex: Int? {
+        categories.firstIndex(where: { $0.id == category.id })
+    }
+
+    private var draggedIndex: Int? {
+        guard let draggedCat = draggedCategory else { return nil }
+        return categories.firstIndex(where: { $0.id == draggedCat.id })
+    }
+
+    private var isBeingDragged: Bool {
+        draggedCategory?.id == category.id
+    }
+
+    // Calculate target index for the dragged item
+    private var targetDropIndex: Int? {
+        guard let draggedIdx = draggedIndex else { return nil }
+        let steps = Int((currentDragOffset / rowHeight).rounded())
+        return max(0, min(categories.count - 1, draggedIdx + steps))
+    }
+
+    // Calculate visual offset for items to make space for drop zone
+    private var visualOffset: CGFloat {
+        guard let draggedIdx = draggedIndex,
+              let currentIdx = currentIndex,
+              let targetIdx = targetDropIndex,
+              !isBeingDragged else {
+            return 0
+        }
+
+        // Make space for the dragged item to land
+        if draggedIdx < targetIdx {
+            // Dragging down: shift items between original and target up
+            if currentIdx > draggedIdx && currentIdx <= targetIdx {
+                return -rowHeight
+            }
+        } else if draggedIdx > targetIdx {
+            // Dragging up: shift items between target and original down
+            if currentIdx >= targetIdx && currentIdx < draggedIdx {
+                return rowHeight
+            }
+        }
+
+        return 0
+    }
+
+    var body: some View {
+        ZStack {
+            // Show placeholder or actual content
+            if isBeingDragged {
+                // Placeholder - empty space where item was
+                CategoryEditRow(
+                    category: category,
+                    onUpdate: onUpdate,
+                    onDelete: onDelete
+                )
+                .opacity(0.0)
+            } else {
+                // Actual content
+                CategoryEditRow(
+                    category: category,
+                    onUpdate: onUpdate,
+                    onDelete: onDelete
+                )
+            }
+        }
+        .offset(y: visualOffset)
+        .overlay(
+            // Dragged item floating above
+            Group {
+                if isBeingDragged {
+                    CategoryEditRow(
+                        category: category,
+                        onUpdate: onUpdate,
+                        onDelete: onDelete
+                    )
+                    .offset(y: currentDragOffset)
+                    .opacity(0.95)
+                    .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
+                }
+            }
+            .zIndex(1000)
+        )
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: visualOffset)
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isBeingDragged)
+        .gesture(
+            DragGesture(minimumDistance: 5)
+                .onChanged { value in
+                    // Initialize drag
+                    if !isDragging {
+                        isDragging = true
+                        draggedCategory = category
+                    }
+
+                    guard isBeingDragged else { return }
+
+                    // Update shared drag offset - this moves the floating item and updates drop zones
+                    currentDragOffset = value.translation.height
+                }
+                .onEnded { value in
+                    guard isBeingDragged,
+                          let startIndex = currentIndex,
+                          let targetIndex = targetDropIndex else {
+                        resetDragState()
+                        return
+                    }
+
+                    // Perform the final reorder without animation
+                    if targetIndex != startIndex {
+                        let toIndex = targetIndex > startIndex ? targetIndex + 1 : targetIndex
+                        onReorder(startIndex, toIndex)
+                    }
+
+                    // Reset drag state immediately without animation
+                    isDragging = false
+                    draggedCategory = nil
+                    currentDragOffset = 0
+                }
+        )
+    }
+
+    private func resetDragState() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            currentDragOffset = 0
+            isDragging = false
+            draggedCategory = nil
+        }
     }
 }

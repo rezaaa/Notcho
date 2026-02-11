@@ -222,6 +222,6 @@ struct NotchMainExpandedView: View {
     
     var body: some View {
         ExpandedNotchView(dataManager: dataManager)
-            .padding(8)
+            .padding(0)
     }
 }

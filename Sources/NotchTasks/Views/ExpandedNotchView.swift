@@ -173,6 +173,9 @@ struct ExpandedNotchView: View {
                                 onTaskDelete: { taskId in
                                     dataManager.deleteTask(categoryId: category.id, taskId: taskId)
                                 },
+                                onTaskUpdate: { taskId, newTitle in
+                                    dataManager.updateTask(categoryId: category.id, taskId: taskId, title: newTitle, isCompleted: nil)
+                                },
                                 onAddTask: { title in
                                     dataManager.addTask(to: category.id, title: title)
                                 },
@@ -207,6 +210,7 @@ struct ExpandedNotchView: View {
                         .foregroundColor(.white.opacity(0.5))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
+                        .contentShape(Rectangle())
                         .background(
                             RoundedRectangle(cornerRadius: 12)
                                 .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
@@ -236,6 +240,7 @@ struct CategoryBoxView: View {
     let isFocused: Bool
     let onTaskToggle: (UUID) -> Void
     let onTaskDelete: (UUID) -> Void
+    let onTaskUpdate: (UUID, String) -> Void
     let onAddTask: (String) -> Void
     let onUpdate: (String?, CategoryColor?) -> Void
     let onFocusToggle: () -> Void
@@ -327,7 +332,10 @@ struct CategoryBoxView: View {
                         task: task,
                         accentColor: category.color.color,
                         onToggle: { onTaskToggle(task.id) },
-                        onDelete: { onTaskDelete(task.id) }
+                        onDelete: { onTaskDelete(task.id) },
+                        onUpdate: { newTitle in
+                            onTaskUpdate(task.id, newTitle)
+                        }
                     )
                 }
 
@@ -359,21 +367,7 @@ struct CategoryBoxView: View {
                                 }
                             }
 
-                        if !newTaskText.isEmpty {
-                            Button(action: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    onAddTask(newTaskText)
-                                    newTaskText = ""
-                                }
-                                isTextFieldFocused = true
-                            }) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(category.color.color)
-                            }
-                            .buttonStyle(.plain)
-                            .transition(.scale.combined(with: .opacity))
-                        }
+                        Spacer()
 
                         Button(action: {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
@@ -442,32 +436,53 @@ struct TaskRowView: View {
     let accentColor: Color
     let onToggle: () -> Void
     let onDelete: () -> Void
+    let onUpdate: (String) -> Void
 
     @State private var isHovering = false
     @State private var isHoveringDelete = false
+    @State private var isEditing = false
+    @State private var editedText: String = ""
+    @FocusState private var isEditFieldFocused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
-            Button(action: onToggle) {
-                HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Button(action: onToggle) {
                     Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(task.isCompleted ? accentColor : .white.opacity(0.3))
                         .animation(.spring(response: 0.25, dampingFraction: 0.8), value: task.isCompleted)
+                }
+                .buttonStyle(.plain)
 
+                if isEditing {
+                    TextField("Task name", text: $editedText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.white)
+                        .focused($isEditFieldFocused)
+                        .onSubmit {
+                            saveEdit()
+                        }
+                        .onExitCommand {
+                            cancelEdit()
+                        }
+                } else {
                     Text(task.title)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(task.isCompleted ? 0.35 : 0.9))
                         .strikethrough(task.isCompleted, color: .white.opacity(0.2))
                         .lineLimit(2)
-
-                    Spacer(minLength: 0)
+                        .onTapGesture(count: 2) {
+                            startEditing()
+                        }
                 }
-                .padding(.vertical, 5)
-                .padding(.leading, 4)
-                .contentShape(Rectangle())
+
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
+            .padding(.vertical, 5)
+            .padding(.leading, 4)
+            .contentShape(Rectangle())
 
             Button(action: onDelete) {
                 Image(systemName: "trash")
@@ -494,5 +509,26 @@ struct TaskRowView: View {
         .onHover { hovering in
             isHovering = hovering
         }
+    }
+
+    private func startEditing() {
+        editedText = task.title
+        isEditing = true
+        isEditFieldFocused = true
+    }
+
+    private func cancelEdit() {
+        editedText = ""
+        isEditing = false
+    }
+
+    private func saveEdit() {
+        guard !editedText.isEmpty else {
+            cancelEdit()
+            return
+        }
+        onUpdate(editedText)
+        isEditing = false
+        editedText = ""
     }
 }

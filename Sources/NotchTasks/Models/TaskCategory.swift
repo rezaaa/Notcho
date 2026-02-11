@@ -1,7 +1,15 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
-struct TaskCategory: Identifiable, Codable, Equatable {
+extension UTType {
+    static let taskCategory = UTType(exportedAs: "com.notchtasks.category")
+}
+
+struct TaskCategory: Identifiable, Codable, Equatable, Transferable {
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .taskCategory)
+    }
     var id: UUID
     var title: String
     var iconName: String
