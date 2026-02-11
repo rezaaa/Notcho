@@ -1,6 +1,22 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Constants
+
+enum LayoutConstants {
+    static let taskListSpacing: CGFloat = 2
+    static let taskRowHeight: CGFloat = 28.5
+    static let categorySpacing: CGFloat = 12
+    static let mainViewWidth: CGFloat = 360
+    static let scrollViewMaxHeight: CGFloat = 380
+
+    enum AnimationPresets {
+        static let standardSpring = Animation.spring(response: 0.3, dampingFraction: 0.8)
+        static let quickSpring = Animation.spring(response: 0.25, dampingFraction: 0.8)
+        static let dragSpring = Animation.spring(response: 0.3, dampingFraction: 0.85)
+    }
+}
+
 // MARK: - Shared Components
 
 struct InlineColorPicker: View {
@@ -160,7 +176,7 @@ struct ExpandedNotchView: View {
 
             // Single column category list
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 12) {
+                VStack(spacing: LayoutConstants.categorySpacing) {
                     ForEach(dataManager.categories) { category in
                         if focusedCategoryId == nil || focusedCategoryId == category.id {
                             CategoryBoxView(
@@ -175,6 +191,9 @@ struct ExpandedNotchView: View {
                                 },
                                 onTaskUpdate: { taskId, newTitle in
                                     dataManager.updateTask(categoryId: category.id, taskId: taskId, title: newTitle, isCompleted: nil)
+                                },
+                                onTaskReorder: { from, to in
+                                    dataManager.reorderTasks(in: category.id, from: IndexSet(integer: from), to: to)
                                 },
                                 onAddTask: { title in
                                     dataManager.addTask(to: category.id, title: title)
@@ -222,9 +241,9 @@ struct ExpandedNotchView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
             }
-            .frame(maxHeight: 380)
+            .frame(maxHeight: LayoutConstants.scrollViewMaxHeight)
         }
-        .frame(width: 360)
+        .frame(width: LayoutConstants.mainViewWidth)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.black)
@@ -241,6 +260,7 @@ struct CategoryBoxView: View {
     let onTaskToggle: (UUID) -> Void
     let onTaskDelete: (UUID) -> Void
     let onTaskUpdate: (UUID, String) -> Void
+    let onTaskReorder: (Int, Int) -> Void
     let onAddTask: (String) -> Void
     let onUpdate: (String?, CategoryColor?) -> Void
     let onFocusToggle: () -> Void
@@ -249,10 +269,13 @@ struct CategoryBoxView: View {
     @State private var newTaskText = ""
     @State private var isHovering = false
     @State private var showCustomizer = false
+    @State private var draggedTask: TaskItem?
+    @State private var currentDragOffset: CGFloat = 0
     @FocusState private var isTextFieldFocused: Bool
 
     private var visibleTasks: [TaskItem] {
-        hideCompleted ? category.incompleteTasks : category.tasks
+        let tasks = hideCompleted ? category.incompleteTasks : category.tasks
+        return tasks.sorted { $0.order < $1.order }
     }
 
     var body: some View {
@@ -326,15 +349,21 @@ struct CategoryBoxView: View {
             }
 
             // Tasks
-            VStack(spacing: 2) {
+            VStack(spacing: LayoutConstants.taskListSpacing) {
                 ForEach(visibleTasks) { task in
-                    TaskRowView(
+                    DraggableTaskRow(
                         task: task,
+                        tasks: visibleTasks,
+                        draggedTask: $draggedTask,
+                        currentDragOffset: $currentDragOffset,
                         accentColor: category.color.color,
                         onToggle: { onTaskToggle(task.id) },
                         onDelete: { onTaskDelete(task.id) },
                         onUpdate: { newTitle in
                             onTaskUpdate(task.id, newTitle)
+                        },
+                        onReorder: { from, to in
+                            onTaskReorder(from, to)
                         }
                     )
                 }
@@ -437,6 +466,7 @@ struct TaskRowView: View {
     let onToggle: () -> Void
     let onDelete: () -> Void
     let onUpdate: (String) -> Void
+    var isDraggingAny: Bool = false
 
     @State private var isHovering = false
     @State private var isHoveringDelete = false
@@ -498,8 +528,9 @@ struct TaskRowView: View {
             .buttonStyle(.plain)
             .padding(.trailing, 4)
             .onHover { hovering in isHoveringDelete = hovering }
-            .opacity(isHovering ? 1 : 0)
+            .opacity(isHovering && !isDraggingAny ? 1 : 0)
             .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isHovering)
+            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isDraggingAny)
         }
         .background(
             RoundedRectangle(cornerRadius: 6)
@@ -530,5 +561,167 @@ struct TaskRowView: View {
         onUpdate(editedText)
         isEditing = false
         editedText = ""
+    }
+}
+
+// MARK: - Draggable Task Row
+
+struct DraggableTaskRow: View {
+    let task: TaskItem
+    let tasks: [TaskItem]
+    @Binding var draggedTask: TaskItem?
+    @Binding var currentDragOffset: CGFloat
+    let accentColor: Color
+    let onToggle: () -> Void
+    let onDelete: () -> Void
+    let onUpdate: (String) -> Void
+    let onReorder: (Int, Int) -> Void
+
+    @State private var isDragging = false
+
+    private var currentIndex: Int? {
+        tasks.firstIndex(where: { $0.id == task.id })
+    }
+
+    private var draggedIndex: Int? {
+        guard let draggedTsk = draggedTask else { return nil }
+        return tasks.firstIndex(where: { $0.id == draggedTsk.id })
+    }
+
+    private var isBeingDragged: Bool {
+        draggedTask?.id == task.id
+    }
+
+    private var targetDropIndex: Int? {
+        guard let draggedIdx = draggedIndex else { return nil }
+        let steps = Int((currentDragOffset / LayoutConstants.taskRowHeight).rounded())
+        return max(0, min(tasks.count - 1, draggedIdx + steps))
+    }
+
+    private var visualOffset: CGFloat {
+        guard let draggedIdx = draggedIndex,
+              let currentIdx = currentIndex,
+              let targetIdx = targetDropIndex,
+              !isBeingDragged else {
+            return 0
+        }
+
+        // Dragging down: shift items up between original and target position
+        if draggedIdx < targetIdx {
+            if currentIdx > draggedIdx && currentIdx <= targetIdx {
+                return -LayoutConstants.taskRowHeight
+            }
+        }
+        // Dragging up: shift items down between target and original position
+        else if draggedIdx > targetIdx {
+            if currentIdx >= targetIdx && currentIdx < draggedIdx {
+                return LayoutConstants.taskRowHeight
+            }
+        }
+
+        return 0
+    }
+
+    var body: some View {
+        ZStack {
+            placeholderOrContent
+        }
+        .offset(y: visualOffset)
+        .overlay(floatingDraggedItem)
+        .animation(LayoutConstants.AnimationPresets.dragSpring, value: visualOffset)
+        .animation(LayoutConstants.AnimationPresets.quickSpring, value: isBeingDragged)
+        .gesture(dragGesture)
+    }
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private var placeholderOrContent: some View {
+        if isBeingDragged {
+            // Placeholder - maintain exact space using fixed frame
+            Color.clear
+                .frame(height: LayoutConstants.taskRowHeight - LayoutConstants.taskListSpacing)
+        } else {
+            // Actual content
+            TaskRowView(
+                task: task,
+                accentColor: accentColor,
+                onToggle: onToggle,
+                onDelete: onDelete,
+                onUpdate: onUpdate,
+                isDraggingAny: draggedTask != nil
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var floatingDraggedItem: some View {
+        Group {
+            if isBeingDragged {
+                TaskRowView(
+                    task: task,
+                    accentColor: accentColor,
+                    onToggle: onToggle,
+                    onDelete: onDelete,
+                    onUpdate: onUpdate,
+                    isDraggingAny: true
+                )
+                .offset(y: currentDragOffset)
+                .opacity(0.95)
+                .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
+            }
+        }
+        .zIndex(1000)
+    }
+
+    // MARK: - Gestures
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 5)
+            .onChanged(handleDragChanged)
+            .onEnded(handleDragEnded)
+    }
+
+    // MARK: - Drag Handlers
+
+    private func handleDragChanged(_ value: DragGesture.Value) {
+        // Initialize drag
+        if !isDragging {
+            isDragging = true
+            draggedTask = task
+        }
+
+        guard isBeingDragged else { return }
+
+        // Update shared drag offset - this moves the floating item and updates drop zones
+        currentDragOffset = value.translation.height
+    }
+
+    private func handleDragEnded(_ value: DragGesture.Value) {
+        guard isBeingDragged,
+              let startIndex = currentIndex,
+              let targetIndex = targetDropIndex else {
+            resetDragState()
+            return
+        }
+
+        // Perform the final reorder without animation
+        if targetIndex != startIndex {
+            let toIndex = targetIndex > startIndex ? targetIndex + 1 : targetIndex
+            onReorder(startIndex, toIndex)
+        }
+
+        // Reset drag state immediately without animation
+        isDragging = false
+        draggedTask = nil
+        currentDragOffset = 0
+    }
+
+    private func resetDragState() {
+        withAnimation(LayoutConstants.AnimationPresets.dragSpring) {
+            currentDragOffset = 0
+            isDragging = false
+            draggedTask = nil
+        }
     }
 }

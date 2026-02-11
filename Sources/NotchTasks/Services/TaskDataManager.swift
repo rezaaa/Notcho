@@ -27,6 +27,18 @@ class TaskDataManager: ObservableObject {
             return
         }
         categories = decoded.sorted { $0.order < $1.order }
+
+        // Fix task ordering for legacy data
+        for categoryIndex in categories.indices {
+            for (taskIndex, _) in categories[categoryIndex].tasks.enumerated() {
+                if categories[categoryIndex].tasks[taskIndex].order == 0 && taskIndex > 0 {
+                    categories[categoryIndex].tasks[taskIndex].order = taskIndex
+                }
+            }
+            // Sort tasks by order
+            categories[categoryIndex].tasks.sort { $0.order < $1.order }
+        }
+        saveData()
     }
 
     func saveData() {
@@ -91,7 +103,8 @@ class TaskDataManager: ObservableObject {
     func addTask(to categoryId: UUID, title: String) {
         guard let index = categories.firstIndex(where: { $0.id == categoryId }) else { return }
 
-        let task = TaskItem(title: title)
+        let order = categories[index].tasks.count
+        let task = TaskItem(title: title, order: order)
         categories[index].tasks.append(task)
         saveData()
     }
@@ -127,7 +140,30 @@ class TaskDataManager: ObservableObject {
         }
 
         categories[categoryIndex].tasks.removeAll { $0.id == taskId }
+        reorderTasks(in: categoryId)
         saveData()
+    }
+
+    func reorderTasks(in categoryId: UUID, from source: IndexSet, to destination: Int) {
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else {
+            return
+        }
+
+        categories[categoryIndex].tasks.move(fromOffsets: source, toOffset: destination)
+        for (index, _) in categories[categoryIndex].tasks.enumerated() {
+            categories[categoryIndex].tasks[index].order = index
+        }
+        saveData()
+    }
+
+    private func reorderTasks(in categoryId: UUID) {
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else {
+            return
+        }
+
+        for (index, _) in categories[categoryIndex].tasks.enumerated() {
+            categories[categoryIndex].tasks[index].order = index
+        }
     }
 
     // MARK: - Statistics
