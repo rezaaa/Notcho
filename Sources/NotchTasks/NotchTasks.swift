@@ -19,26 +19,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Hide dock icon
         NSApplication.shared.setActivationPolicy(.accessory)
-        
-        // Initialize data manager
+
         dataManager = TaskDataManager()
         notchController = NotchController.shared
-        
-        // Setup menu bar
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
             button.image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "NotchTasks")
         }
-        
+
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Open Notcho", action: #selector(showNotch), keyEquivalent: "t"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
-        
-        // Show notch on launch - using the new simplified API
+
         Task { @MainActor in
             await notchController.showNotch(with: dataManager)
         }
@@ -55,21 +51,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 final class NotchController: ObservableObject {
     static let shared = NotchController()
-    
+
     private var mainNotch: DynamicNotch<NotchMainExpandedView, EmptyView, EmptyView>?
     private weak var currentDataManager: TaskDataManager?
     @Published var isExpanded = false
     nonisolated(unsafe) private var clickMonitor: Any?
     nonisolated(unsafe) private var hoverMonitor: Any?
     private var autoCloseTask: Task<Void, Never>?
-    
+    private static let notchWidth: CGFloat = 400
+    private static let notchHeight: CGFloat = 450
+    private static let triggerWidth: CGFloat = 180
+    private static let triggerHeight: CGFloat = 20
+
     private init() {}
     
     func startAutoCloseTimer() {
         guard autoCloseTask == nil else { return }
-        
+
         autoCloseTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
             if !Task.isCancelled {
                 await hideNotch()
             }
@@ -84,7 +84,7 @@ final class NotchController: ObservableObject {
     
     func showNotch(with dataManager: TaskDataManager) async {
         self.currentDataManager = dataManager
-        
+
         if mainNotch == nil {
             mainNotch = DynamicNotch(style: .auto) {
                 NotchMainExpandedView(dataManager: dataManager)
@@ -94,8 +94,7 @@ final class NotchController: ObservableObject {
                 EmptyView()
             }
         }
-        
-        // Show and expand the notch
+
         await mainNotch?.expand()
         isExpanded = true
         setupClickMonitor()
@@ -119,43 +118,33 @@ final class NotchController: ObservableObject {
     
     private func setupHoverMonitor(with dataManager: TaskDataManager) {
         removeHoverMonitor()
-        
+
         var lastUpdateTime: Date = Date.distantPast
-        
+
         hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self, weak dataManager] event in
             guard let self = self, let dataManager = dataManager else { return }
-            
-            // Throttle updates to prevent layout recursion
+
             let now = Date()
             guard now.timeIntervalSince(lastUpdateTime) > 0.1 else { return }
             lastUpdateTime = now
-            
-            // Get the mouse location in screen coordinates
+
             let mouseLocation = NSEvent.mouseLocation
-            
             let screen = NSScreen.main
             let screenFrame = screen?.frame ?? .zero
-            
-            // Define hover trigger area at the top center of the screen (under notch)
-            let triggerWidth: CGFloat = 180
-            let triggerHeight: CGFloat = 20
-            let triggerX = (screenFrame.width - triggerWidth) / 2
-            let triggerY = screenFrame.height - triggerHeight
-            
-            let triggerFrame = NSRect(x: triggerX, y: triggerY, width: triggerWidth, height: triggerHeight)
-            
-            // Expanded area (approximate - match values in setupClickMonitor)
-            let notchWidth: CGFloat = 400
-            let notchHeight: CGFloat = 450
-            let notchX = (screenFrame.width - notchWidth) / 2
-            let notchY = screenFrame.height - notchHeight
-            let expandedFrame = NSRect(x: notchX, y: notchY, width: notchWidth, height: notchHeight)
-            
+
+            let triggerX = (screenFrame.width - Self.triggerWidth) / 2
+            let triggerY = screenFrame.height - Self.triggerHeight
+            let triggerFrame = NSRect(x: triggerX, y: triggerY, width: Self.triggerWidth, height: Self.triggerHeight)
+
+            let notchX = (screenFrame.width - Self.notchWidth) / 2
+            let notchY = screenFrame.height - Self.notchHeight
+            let expandedFrame = NSRect(x: notchX, y: notchY, width: Self.notchWidth, height: Self.notchHeight)
+
             Task { @MainActor in
                 if triggerFrame.contains(mouseLocation) && !self.isExpanded {
                     await self.showNotch(with: dataManager)
                 }
-                
+
                 if self.isExpanded {
                     if expandedFrame.contains(mouseLocation) {
                         self.cancelAutoCloseTimer()
@@ -176,26 +165,18 @@ final class NotchController: ObservableObject {
     
     private func setupClickMonitor() {
         removeClickMonitor()
-        
+
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             guard let self = self else { return }
-            
-            // Get the click location in screen coordinates
+
             let clickLocation = NSEvent.mouseLocation
-            
-            // Check if click is outside notch bounds (roughly)
-            // Notch area is typically at the top center of the screen
             let screen = NSScreen.main
             let screenFrame = screen?.frame ?? .zero
-            
-            // Define notch area (approximate - adjust these values as needed)
-            let notchWidth: CGFloat = 400
-            let notchHeight: CGFloat = 450
-            let notchX = (screenFrame.width - notchWidth) / 2
-            let notchY = screenFrame.height - notchHeight
-            
-            let notchFrame = NSRect(x: notchX, y: notchY, width: notchWidth, height: notchHeight)
-            
+
+            let notchX = (screenFrame.width - Self.notchWidth) / 2
+            let notchY = screenFrame.height - Self.notchHeight
+            let notchFrame = NSRect(x: notchX, y: notchY, width: Self.notchWidth, height: Self.notchHeight)
+
             if !notchFrame.contains(clickLocation) && self.isExpanded {
                 Task { @MainActor in
                     await self.hideNotch()

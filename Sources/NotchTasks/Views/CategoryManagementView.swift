@@ -16,7 +16,6 @@ struct CategoryManagementView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Text("Manage Categories")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
@@ -35,7 +34,6 @@ struct CategoryManagementView: View {
             .padding(.top, 18)
             .padding(.bottom, 14)
 
-            // Category list - Using ScrollView with manual drag
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 10) {
                     ForEach(dataManager.categories) { category in
@@ -58,10 +56,8 @@ struct CategoryManagementView: View {
                         )
                     }
 
-                    // Add new category
                     if isAddingCategory {
                         VStack(spacing: 10) {
-                            // Icon + Name
                             HStack(spacing: 10) {
                                 Image(systemName: newCategoryIcon)
                                     .font(.system(size: 15, weight: .semibold))
@@ -92,17 +88,14 @@ struct CategoryManagementView: View {
                                     }
                             }
 
-                            // Color picker
                             InlineColorPicker(selectedColor: newCategoryColor) { color in
                                 newCategoryColor = color
                             }
 
-                            // Icon picker
                             IconPicker(selectedIcon: newCategoryIcon) { icon in
                                 newCategoryIcon = icon
                             }
 
-                            // Buttons
                             HStack(spacing: 8) {
                                 Button(action: {
                                     isAddingCategory = false
@@ -206,7 +199,6 @@ struct CategoryEditRow: View {
     @State private var isHoveringDelete = false
     @FocusState private var isEditFieldFocused: Bool
 
-    // Store original values for cancel
     @State private var originalName: String
     @State private var originalIcon: String
     @State private var originalColor: CategoryColor
@@ -225,9 +217,7 @@ struct CategoryEditRow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Display row — always visible
             HStack(spacing: 10) {
-                // Drag handle
                 if !isEditing {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 11, weight: .semibold))
@@ -306,7 +296,6 @@ struct CategoryEditRow: View {
             .padding(.horizontal, 14)
             .padding(.vertical, isEditing ? 14 : 12)
 
-            // Expandable edit section
             if isEditing {
                 VStack(spacing: 8) {
                     InlineColorPicker(selectedColor: editedColor) { color in
@@ -317,7 +306,6 @@ struct CategoryEditRow: View {
                         editedIcon = icon
                     }
 
-                    // Action buttons
                     HStack(spacing: 8) {
                         Button(action: cancelEdit) {
                             Text("Cancel")
@@ -370,7 +358,6 @@ struct CategoryEditRow: View {
     }
 
     private func startEditing() {
-        // Store current values
         originalName = category.title
         originalIcon = category.iconName
         originalColor = category.color
@@ -382,7 +369,6 @@ struct CategoryEditRow: View {
     }
 
     private func cancelEdit() {
-        // Restore to original state without updating the category
         editedName = originalName
         editedIcon = originalIcon
         editedColor = originalColor
@@ -392,7 +378,6 @@ struct CategoryEditRow: View {
     private func saveEdit() {
         guard !editedName.isEmpty else { return }
         onUpdate(editedName, editedIcon, editedColor)
-        // Update originals after successful save
         originalName = editedName
         originalIcon = editedIcon
         originalColor = editedColor
@@ -400,7 +385,6 @@ struct CategoryEditRow: View {
     }
 }
 
-// MARK: - Draggable Category Row
 struct DraggableCategoryRow: View {
     let category: TaskCategory
     @Binding var categories: [TaskCategory]
@@ -411,31 +395,21 @@ struct DraggableCategoryRow: View {
     let onReorder: (Int, Int) -> Void
 
     @State private var isDragging = false
-
-    // Row height: padding (12*2=24) + content (28) + spacing (10) = 62
     private let rowHeight: CGFloat = 62
 
-    private var currentIndex: Int? {
-        categories.firstIndex(where: { $0.id == category.id })
-    }
-
+    private var currentIndex: Int? { categories.firstIndex(where: { $0.id == category.id }) }
     private var draggedIndex: Int? {
         guard let draggedCat = draggedCategory else { return nil }
         return categories.firstIndex(where: { $0.id == draggedCat.id })
     }
+    private var isBeingDragged: Bool { draggedCategory?.id == category.id }
 
-    private var isBeingDragged: Bool {
-        draggedCategory?.id == category.id
-    }
-
-    // Calculate target index for the dragged item
     private var targetDropIndex: Int? {
         guard let draggedIdx = draggedIndex else { return nil }
         let steps = Int((currentDragOffset / rowHeight).rounded())
         return max(0, min(categories.count - 1, draggedIdx + steps))
     }
 
-    // Calculate visual offset for items to make space for drop zone
     private var visualOffset: CGFloat {
         guard let draggedIdx = draggedIndex,
               let currentIdx = currentIndex,
@@ -444,14 +418,11 @@ struct DraggableCategoryRow: View {
             return 0
         }
 
-        // Make space for the dragged item to land
         if draggedIdx < targetIdx {
-            // Dragging down: shift items between original and target up
             if currentIdx > draggedIdx && currentIdx <= targetIdx {
                 return -rowHeight
             }
         } else if draggedIdx > targetIdx {
-            // Dragging up: shift items between target and original down
             if currentIdx >= targetIdx && currentIdx < draggedIdx {
                 return rowHeight
             }
@@ -462,9 +433,7 @@ struct DraggableCategoryRow: View {
 
     var body: some View {
         ZStack {
-            // Show placeholder or actual content
             if isBeingDragged {
-                // Placeholder - empty space where item was
                 CategoryEditRow(
                     category: category,
                     onUpdate: onUpdate,
@@ -472,7 +441,6 @@ struct DraggableCategoryRow: View {
                 )
                 .opacity(0.0)
             } else {
-                // Actual content
                 CategoryEditRow(
                     category: category,
                     onUpdate: onUpdate,
@@ -482,7 +450,6 @@ struct DraggableCategoryRow: View {
         }
         .offset(y: visualOffset)
         .overlay(
-            // Dragged item floating above
             Group {
                 if isBeingDragged {
                     CategoryEditRow(
@@ -502,15 +469,11 @@ struct DraggableCategoryRow: View {
         .gesture(
             DragGesture(minimumDistance: 5)
                 .onChanged { value in
-                    // Initialize drag
                     if !isDragging {
                         isDragging = true
                         draggedCategory = category
                     }
-
                     guard isBeingDragged else { return }
-
-                    // Update shared drag offset - this moves the floating item and updates drop zones
                     currentDragOffset = value.translation.height
                 }
                 .onEnded { value in
@@ -521,13 +484,11 @@ struct DraggableCategoryRow: View {
                         return
                     }
 
-                    // Perform the final reorder without animation
                     if targetIndex != startIndex {
                         let toIndex = targetIndex > startIndex ? targetIndex + 1 : targetIndex
                         onReorder(startIndex, toIndex)
                     }
 
-                    // Reset drag state immediately without animation
                     isDragging = false
                     draggedCategory = nil
                     currentDragOffset = 0

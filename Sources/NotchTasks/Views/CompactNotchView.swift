@@ -4,10 +4,14 @@ struct CompactNotchView: View {
     let taskCount: Int
     let date: Date
 
-    private var dateString: String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE · MMM d"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private var dateString: String {
+        Self.dateFormatter.string(from: date)
     }
 
     var body: some View {

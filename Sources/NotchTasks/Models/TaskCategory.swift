@@ -26,13 +26,8 @@ struct TaskCategory: Identifiable, Codable, Equatable, Transferable {
         self.tasks = tasks
     }
 
-    var incompleteTasks: [TaskItem] {
-        tasks.filter { !$0.isCompleted }
-    }
-
-    var completedTasks: [TaskItem] {
-        tasks.filter { $0.isCompleted }
-    }
+    var incompleteTasks: [TaskItem] { tasks.filter { !$0.isCompleted } }
+    var completedTasks: [TaskItem] { tasks.filter { $0.isCompleted } }
 }
 
 struct TaskItem: Identifiable, Codable, Equatable {
@@ -50,7 +45,6 @@ struct TaskItem: Identifiable, Codable, Equatable {
         self.order = order
     }
 
-    // Custom decoding to handle legacy data without order field
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)

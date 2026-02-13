@@ -1,8 +1,6 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Constants
-
 enum LayoutConstants {
     static let taskListSpacing: CGFloat = 2
     static let taskRowHeight: CGFloat = 28.5
@@ -16,8 +14,6 @@ enum LayoutConstants {
         static let dragSpring = Animation.spring(response: 0.3, dampingFraction: 0.85)
     }
 }
-
-// MARK: - Shared Components
 
 struct InlineColorPicker: View {
     let selectedColor: CategoryColor
@@ -90,17 +86,19 @@ struct IconPicker: View {
     }
 }
 
-// MARK: - Main View
-
 struct ExpandedNotchView: View {
     @ObservedObject var dataManager: TaskDataManager
     @State private var showCategoryManager = false
     @State private var focusedCategoryId: UUID?
 
-    private var dateString: String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE · MMMM d"
-        return formatter.string(from: Date())
+        return formatter
+    }()
+
+    private var dateString: String {
+        Self.dateFormatter.string(from: Date())
     }
 
     var body: some View {
@@ -117,7 +115,6 @@ struct ExpandedNotchView: View {
 
     var mainTaskView: some View {
         VStack(spacing: 0) {
-            // Header
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(dateString)
@@ -132,7 +129,6 @@ struct ExpandedNotchView: View {
                 Spacer()
 
                 HStack(spacing: 8) {
-                    // Focus mode toggle
                     Button(action: {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             focusedCategoryId = nil
@@ -174,7 +170,6 @@ struct ExpandedNotchView: View {
             .padding(.top, 14)
             .padding(.bottom, 12)
 
-            // Single column category list
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: LayoutConstants.categorySpacing) {
                     ForEach(dataManager.categories) { category in
@@ -216,7 +211,6 @@ struct ExpandedNotchView: View {
                         }
                     }
 
-                    // Manage Categories button
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showCategoryManager = true
@@ -253,8 +247,6 @@ struct ExpandedNotchView: View {
     }
 }
 
-// MARK: - Category Box
-
 struct CategoryBoxView: View {
     let category: TaskCategory
     let hideCompleted: Bool
@@ -276,15 +268,12 @@ struct CategoryBoxView: View {
     @FocusState private var isTextFieldFocused: Bool
 
     private var visibleTasks: [TaskItem] {
-        let tasks = hideCompleted ? category.incompleteTasks : category.tasks
-        return tasks.sorted { $0.order < $1.order }
+        (hideCompleted ? category.incompleteTasks : category.tasks).sorted { $0.order < $1.order }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Category header
             HStack(spacing: 8) {
-                // Icon button — tap to open customizer
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         showCustomizer.toggle()
@@ -308,7 +297,6 @@ struct CategoryBoxView: View {
 
                 Spacer()
 
-                // Focus button
                 Button(action: onFocusToggle) {
                     Image(systemName: isFocused ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
                         .font(.system(size: 10, weight: .medium))
@@ -331,7 +319,6 @@ struct CategoryBoxView: View {
                     )
             }
 
-            // Inline customizer
             if showCustomizer {
                 VStack(spacing: 8) {
                     InlineColorPicker(selectedColor: category.color) { color in
@@ -350,7 +337,6 @@ struct CategoryBoxView: View {
                 .transition(.opacity.combined(with: .offset(y: -6)).combined(with: .scale(scale: 0.97, anchor: .top)))
             }
 
-            // Tasks
             VStack(spacing: LayoutConstants.taskListSpacing) {
                 ForEach(visibleTasks) { task in
                     DraggableTaskRow(
@@ -370,7 +356,6 @@ struct CategoryBoxView: View {
                     )
                 }
 
-                // Add task
                 if isAddingTask {
                     HStack(spacing: 8) {
                         Image(systemName: "circle")
@@ -459,8 +444,6 @@ struct CategoryBoxView: View {
         }
     }
 }
-
-// MARK: - Task Row
 
 struct TaskRowView: View {
     let task: TaskItem
@@ -566,8 +549,6 @@ struct TaskRowView: View {
     }
 }
 
-// MARK: - Draggable Task Row
-
 struct DraggableTaskRow: View {
     let task: TaskItem
     let tasks: [TaskItem]
@@ -581,18 +562,12 @@ struct DraggableTaskRow: View {
 
     @State private var isDragging = false
 
-    private var currentIndex: Int? {
-        tasks.firstIndex(where: { $0.id == task.id })
-    }
-
+    private var currentIndex: Int? { tasks.firstIndex(where: { $0.id == task.id }) }
     private var draggedIndex: Int? {
         guard let draggedTsk = draggedTask else { return nil }
         return tasks.firstIndex(where: { $0.id == draggedTsk.id })
     }
-
-    private var isBeingDragged: Bool {
-        draggedTask?.id == task.id
-    }
+    private var isBeingDragged: Bool { draggedTask?.id == task.id }
 
     private var targetDropIndex: Int? {
         guard let draggedIdx = draggedIndex else { return nil }
@@ -635,16 +610,12 @@ struct DraggableTaskRow: View {
         .gesture(dragGesture)
     }
 
-    // MARK: - Subviews
-
     @ViewBuilder
     private var placeholderOrContent: some View {
         if isBeingDragged {
-            // Placeholder - maintain exact space using fixed frame
             Color.clear
                 .frame(height: LayoutConstants.taskRowHeight - LayoutConstants.taskListSpacing)
         } else {
-            // Actual content
             TaskRowView(
                 task: task,
                 accentColor: accentColor,
@@ -676,26 +647,18 @@ struct DraggableTaskRow: View {
         .zIndex(1000)
     }
 
-    // MARK: - Gestures
-
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 5)
             .onChanged(handleDragChanged)
             .onEnded(handleDragEnded)
     }
 
-    // MARK: - Drag Handlers
-
     private func handleDragChanged(_ value: DragGesture.Value) {
-        // Initialize drag
         if !isDragging {
             isDragging = true
             draggedTask = task
         }
-
         guard isBeingDragged else { return }
-
-        // Update shared drag offset - this moves the floating item and updates drop zones
         currentDragOffset = value.translation.height
     }
 
@@ -707,13 +670,11 @@ struct DraggableTaskRow: View {
             return
         }
 
-        // Perform the final reorder without animation
         if targetIndex != startIndex {
             let toIndex = targetIndex > startIndex ? targetIndex + 1 : targetIndex
             onReorder(startIndex, toIndex)
         }
 
-        // Reset drag state immediately without animation
         isDragging = false
         draggedTask = nil
         currentDragOffset = 0

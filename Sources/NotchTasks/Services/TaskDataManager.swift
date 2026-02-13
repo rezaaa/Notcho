@@ -12,14 +12,7 @@ class TaskDataManager: ObservableObject {
     init() {
         loadData()
         loadSettings()
-
-        // Add sample data if empty
-        // if categories.isEmpty {
-        //     createSampleData()
-        // }
     }
-
-    // MARK: - Data Persistence
 
     func loadData() {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
@@ -28,14 +21,12 @@ class TaskDataManager: ObservableObject {
         }
         categories = decoded.sorted { $0.order < $1.order }
 
-        // Fix task ordering for legacy data
         for categoryIndex in categories.indices {
             for (taskIndex, _) in categories[categoryIndex].tasks.enumerated() {
                 if categories[categoryIndex].tasks[taskIndex].order == 0 && taskIndex > 0 {
                     categories[categoryIndex].tasks[taskIndex].order = taskIndex
                 }
             }
-            // Sort tasks by order
             categories[categoryIndex].tasks.sort { $0.order < $1.order }
         }
         saveData()
@@ -65,16 +56,9 @@ class TaskDataManager: ObservableObject {
 
     func updateCategory(id: UUID, title: String? = nil, iconName: String? = nil, color: CategoryColor? = nil) {
         guard let index = categories.firstIndex(where: { $0.id == id }) else { return }
-
-        if let title = title {
-            categories[index].title = title
-        }
-        if let iconName = iconName {
-            categories[index].iconName = iconName
-        }
-        if let color = color {
-            categories[index].color = color
-        }
+        if let title = title { categories[index].title = title }
+        if let iconName = iconName { categories[index].iconName = iconName }
+        if let color = color { categories[index].color = color }
         saveData()
     }
 
@@ -114,13 +98,8 @@ class TaskDataManager: ObservableObject {
               let taskIndex = categories[categoryIndex].tasks.firstIndex(where: { $0.id == taskId }) else {
             return
         }
-
-        if let title = title {
-            categories[categoryIndex].tasks[taskIndex].title = title
-        }
-        if let isCompleted = isCompleted {
-            categories[categoryIndex].tasks[taskIndex].isCompleted = isCompleted
-        }
+        if let title = title { categories[categoryIndex].tasks[taskIndex].title = title }
+        if let isCompleted = isCompleted { categories[categoryIndex].tasks[taskIndex].isCompleted = isCompleted }
         saveData()
     }
 
@@ -135,20 +114,14 @@ class TaskDataManager: ObservableObject {
     }
 
     func deleteTask(categoryId: UUID, taskId: UUID) {
-        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else {
-            return
-        }
-
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else { return }
         categories[categoryIndex].tasks.removeAll { $0.id == taskId }
         reorderTasks(in: categoryId)
         saveData()
     }
 
     func reorderTasks(in categoryId: UUID, from source: IndexSet, to destination: Int) {
-        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else {
-            return
-        }
-
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else { return }
         categories[categoryIndex].tasks.move(fromOffsets: source, toOffset: destination)
         for (index, _) in categories[categoryIndex].tasks.enumerated() {
             categories[categoryIndex].tasks[index].order = index
@@ -157,67 +130,13 @@ class TaskDataManager: ObservableObject {
     }
 
     private func reorderTasks(in categoryId: UUID) {
-        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else {
-            return
-        }
-
+        guard let categoryIndex = categories.firstIndex(where: { $0.id == categoryId }) else { return }
         for (index, _) in categories[categoryIndex].tasks.enumerated() {
             categories[categoryIndex].tasks[index].order = index
         }
     }
 
-    // MARK: - Statistics
-
-    var totalTasks: Int {
-        categories.reduce(0) { $0 + $1.tasks.count }
-    }
-
-    var totalIncompleteTasks: Int {
-        categories.reduce(0) { $0 + $1.incompleteTasks.count }
-    }
-
-    var totalCompletedTasks: Int {
-        categories.reduce(0) { $0 + $1.completedTasks.count }
-    }
-
-    // MARK: - Sample Data
-
-    private func createSampleData() {
-        let workCategory = TaskCategory(
-            title: "Work",
-            iconName: "briefcase",
-            color: .blue,
-            order: 0,
-            tasks: [
-                TaskItem(title: "Review PRD document"),
-                TaskItem(title: "Update project timeline"),
-                TaskItem(title: "Team standup meeting")
-            ]
-        )
-
-        let personalCategory = TaskCategory(
-            title: "Personal",
-            iconName: "house",
-            color: .purple,
-            order: 1,
-            tasks: [
-                TaskItem(title: "Grocery shopping"),
-                TaskItem(title: "Call dentist")
-            ]
-        )
-
-        let fitnessCategory = TaskCategory(
-            title: "Fitness",
-            iconName: "figure.run",
-            color: .green,
-            order: 2,
-            tasks: [
-                TaskItem(title: "Morning run"),
-                TaskItem(title: "Yoga session")
-            ]
-        )
-
-        categories = [workCategory, personalCategory, fitnessCategory]
-        saveData()
-    }
+    var totalTasks: Int { categories.reduce(0) { $0 + $1.tasks.count } }
+    var totalIncompleteTasks: Int { categories.reduce(0) { $0 + $1.incompleteTasks.count } }
+    var totalCompletedTasks: Int { categories.reduce(0) { $0 + $1.completedTasks.count } }
 }
