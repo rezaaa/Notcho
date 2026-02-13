@@ -187,7 +187,9 @@ struct ExpandedNotchView: View {
                                     dataManager.toggleTask(categoryId: category.id, taskId: taskId)
                                 },
                                 onTaskDelete: { taskId in
-                                    dataManager.deleteTask(categoryId: category.id, taskId: taskId)
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        dataManager.deleteTask(categoryId: category.id, taskId: taskId)
+                                    }
                                 },
                                 onTaskUpdate: { taskId, newTitle in
                                     dataManager.updateTask(categoryId: category.id, taskId: taskId, title: newTitle, isCompleted: nil)
@@ -221,7 +223,7 @@ struct ExpandedNotchView: View {
                         }
                     }) {
                         HStack(spacing: 8) {
-                            Image(systemName: "rectangle.3.group")
+                            Image(systemName: "square.stack.3d.up")
                                 .font(.system(size: 13, weight: .semibold))
                             Text("Manage Categories")
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))

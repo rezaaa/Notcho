@@ -33,7 +33,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Open NotchTasks", action: #selector(showNotch), keyEquivalent: "t"))
+        menu.addItem(NSMenuItem(title: "Open Notcho", action: #selector(showNotch), keyEquivalent: "t"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
