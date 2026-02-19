@@ -27,6 +27,16 @@ A beautiful macOS task manager that lives in your MacBook notch. Inspired by iOS
 2. Open `Package.swift` in Xcode
 3. Build and run (⌘R)
 
+### Install From Release
+
+1. Download the latest `.dmg` from GitHub Releases
+2. Move `Notcho.app` to `/Applications`
+3. If macOS blocks the app on first launch, run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Notcho.app
+```
+
 ## Distribution
 
 For signed `.dmg` builds and Sparkle auto-update setup, see:
