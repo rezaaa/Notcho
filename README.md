@@ -10,6 +10,7 @@ A beautiful macOS task manager that lives in your MacBook notch. Inspired by iOS
 - **Hover to Expand**: Hover over the notch to see your tasks
 - **Auto-Hide**: Automatically dismisses when you move away
 - **Task Categories**: Organize with colorful categories
+- **Drag & Drop Reordering**: Drag tasks and categories to reorder them
 - **Focus Mode**: Focus on one category at a time
 - **Quick Actions**: Add, complete, and delete tasks effortlessly
 - **Dark Theme**: Elegant UI with subtle animations
@@ -47,6 +48,8 @@ For signed `.dmg` builds and Sparkle auto-update setup, see:
 
 - **Hover** over the notch to expand
 - **Click** tasks to complete them
+- **Drag** tasks inside a category to reorder
+- **Open Manage Categories** and drag categories to reorder
 - **Manage Categories** button at the bottom
 
 ## Credits
