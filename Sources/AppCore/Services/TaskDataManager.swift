@@ -6,16 +6,19 @@ class TaskDataManager: ObservableObject {
     @Published var categories: [TaskCategory] = []
     @Published var hideCompleted: Bool = false
 
-    private let storageKey = "notchtasks.categories"
-    private let hideCompletedKey = "notchtasks.hideCompleted"
+    private let defaultsSuiteName = "com.rezamahmoudi.notch.shared"
+    private let storageKey = "categories"
+    private let hideCompletedKey = "hideCompleted"
+    private let defaults: UserDefaults
 
     init() {
+        defaults = UserDefaults(suiteName: defaultsSuiteName) ?? .standard
         loadData()
         loadSettings()
     }
 
     func loadData() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+        guard let data = defaults.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([TaskCategory].self, from: data) else {
             return
         }
@@ -34,15 +37,15 @@ class TaskDataManager: ObservableObject {
 
     func saveData() {
         guard let encoded = try? JSONEncoder().encode(categories) else { return }
-        UserDefaults.standard.set(encoded, forKey: storageKey)
+        defaults.set(encoded, forKey: storageKey)
     }
 
     func loadSettings() {
-        hideCompleted = UserDefaults.standard.bool(forKey: hideCompletedKey)
+        hideCompleted = defaults.bool(forKey: hideCompletedKey)
     }
 
     func saveSettings() {
-        UserDefaults.standard.set(hideCompleted, forKey: hideCompletedKey)
+        defaults.set(hideCompleted, forKey: hideCompletedKey)
     }
 
     // MARK: - Category Operations

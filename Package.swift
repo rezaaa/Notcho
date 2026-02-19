@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "NotchTasks",
+    name: "Notcho",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "NotchTasks", targets: ["NotchTasks"])
+        .executable(name: "Notcho", targets: ["Notcho"])
     ],
     dependencies: [
         .package(path: "LocalPackages/DynamicNotchKit"),
@@ -15,12 +15,12 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "NotchTasks",
+            name: "Notcho",
             dependencies: [
                 .product(name: "DynamicNotchKit", package: "DynamicNotchKit"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],
-            path: "Sources/NotchTasks"
+            path: "Sources/AppCore"
         )
     ]
 )

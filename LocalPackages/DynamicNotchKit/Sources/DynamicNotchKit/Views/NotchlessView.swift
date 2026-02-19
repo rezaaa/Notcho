@@ -16,25 +16,8 @@ struct NotchlessView<Expanded, CompactLeading, CompactTrailing>: View where Expa
         self.dynamicNotch = dynamicNotch
     }
 
-    private var cornerRadius: CGFloat {
-        if case let .floating(cornerRadius) = dynamicNotch.style {
-            cornerRadius
-        } else {
-            20
-        }
-    }
-
     var body: some View {
         notchContent()
-            .background {
-                VisualEffectView(material: .popover, blendingMode: .behindWindow)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(.quaternary, lineWidth: 1)
-                    }
-            }
-            .clipShape(.rect(cornerRadius: cornerRadius))
-            .padding(20)
             .onGeometryChange(for: CGFloat.self, of: \.size.height) { newHeight in
                 // This makes sure that the floating window FULLY slides off before disappearing
                 windowHeight = newHeight

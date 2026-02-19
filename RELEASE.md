@@ -90,7 +90,7 @@ The workflow creates/updates the release and uploads:
 
 ## 5) App integration details
 
-Sparkle is wired in `Sources/NotchTasks/NotchTasks.swift`.
+Sparkle is wired in `Sources/AppCore/MainApp.swift`.
 
 - Updater starts only when both `SUFeedURL` and `SUPublicEDKey` are present in `Info.plist`.
 - A `Check for Updates...` menu item is added to the status bar menu when Sparkle is configured.

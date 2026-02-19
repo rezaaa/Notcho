@@ -20,7 +20,7 @@
 	- Summary: No VS Code task needed for Xcode-run workflow.
 
 - [x] Launch the Project
-	- Summary: Open Package.swift in Xcode, select NotchTasks scheme, and run.
+	- Summary: Open Package.swift in Xcode, select Notcho scheme, and run.
 
 - [x] Ensure Documentation is Complete
 	- Summary: README.md and copilot-instructions.md updated with project information.

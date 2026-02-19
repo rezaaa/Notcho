@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    static let taskCategory = UTType(exportedAs: "com.notchtasks.category")
+    static let taskCategory = UTType(exportedAs: "com.rezamahmoudi.notch.shared.category")
 }
 
 struct TaskCategory: Identifiable, Codable, Equatable, Transferable {

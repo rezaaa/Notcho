@@ -4,7 +4,7 @@ import AppKit
 import Sparkle
 
 @main
-struct NotchTasksApp: App {
+struct MainApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
