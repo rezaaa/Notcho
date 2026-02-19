@@ -38,6 +38,11 @@ if [[ -n "${SPARKLE_PRIVATE_KEY}" ]]; then
     exit 1
   fi
 
+  if ! (printf '%s' "${SPARKLE_PRIVATE_KEY}" | base64 --decode >/dev/null 2>&1 || printf '%s' "${SPARKLE_PRIVATE_KEY}" | base64 -D >/dev/null 2>&1); then
+    echo "SPARKLE_PRIVATE_KEY cannot be base64-decoded. Use the exact output of generate_keys -x (single line)." >&2
+    exit 1
+  fi
+
   if [[ ${#ARGS[@]} -gt 0 ]]; then
     printf '%s' "${SPARKLE_PRIVATE_KEY}" | "${GENERATE_APPCAST_BIN}" --ed-key-file - "${ARGS[@]}" "${UPDATES_DIR}"
   else
