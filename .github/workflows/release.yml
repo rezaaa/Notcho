@@ -16,6 +16,18 @@ jobs:
     runs-on: macos-14
     permissions:
       contents: write
+    env:
+      APP_NAME: NotchTasks
+      APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_API_PRIVATE_KEY_P8: ${{ secrets.APPLE_API_PRIVATE_KEY_P8 }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+      SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+      SPARKLE_FEED_URL: ${{ secrets.SPARKLE_FEED_URL }}
 
     steps:
       - name: Checkout
@@ -39,11 +51,7 @@ jobs:
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
       - name: Import Developer ID certificate
-        if: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_KEYCHAIN_PASSWORD != '' }}
-        env:
-          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        if: ${{ env.APPLE_CERTIFICATE_P12 != '' && env.APPLE_CERTIFICATE_PASSWORD != '' && env.APPLE_KEYCHAIN_PASSWORD != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -61,10 +69,7 @@ jobs:
 
       - name: Prepare notary API key
         id: notary
-        if: ${{ secrets.APPLE_API_PRIVATE_KEY_P8 != '' && secrets.APPLE_API_KEY_ID != '' && secrets.APPLE_API_ISSUER_ID != '' }}
-        env:
-          APPLE_API_PRIVATE_KEY_P8: ${{ secrets.APPLE_API_PRIVATE_KEY_P8 }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        if: ${{ env.APPLE_API_PRIVATE_KEY_P8 != '' && env.APPLE_API_KEY_ID != '' && env.APPLE_API_ISSUER_ID != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -75,17 +80,16 @@ jobs:
 
       - name: Build release artifacts
         env:
-          APP_NAME: NotchTasks
           APP_VERSION: ${{ steps.meta.outputs.version }}
           BUILD_NUMBER: ${{ github.run_number }}
-          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-          SPARKLE_FEED_URL: ${{ secrets.SPARKLE_FEED_URL }}
+          SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ env.SPARKLE_PUBLIC_ED_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ env.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_FEED_URL: ${{ env.SPARKLE_FEED_URL }}
           DOWNLOAD_URL_PREFIX: https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.tag }}/
           APPLE_API_KEY_PATH: ${{ steps.notary.outputs.key_path }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_ID: ${{ env.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ env.APPLE_API_ISSUER_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -117,7 +121,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.meta.outputs.tag }}
           VERSION: ${{ steps.meta.outputs.version }}
-          APP_NAME: NotchTasks
+          APP_NAME: ${{ env.APP_NAME }}
         shell: bash
         run: |
           set -euo pipefail
