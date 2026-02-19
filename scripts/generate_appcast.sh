@@ -28,6 +28,16 @@ if [[ -n "${DOWNLOAD_URL_PREFIX}" ]]; then
 fi
 
 if [[ -n "${SPARKLE_PRIVATE_KEY}" ]]; then
+  # Normalize secrets copied from UI/CLI (strip quotes and whitespace/newlines).
+  SPARKLE_PRIVATE_KEY="${SPARKLE_PRIVATE_KEY%\"}"
+  SPARKLE_PRIVATE_KEY="${SPARKLE_PRIVATE_KEY#\"}"
+  SPARKLE_PRIVATE_KEY="$(printf '%s' "${SPARKLE_PRIVATE_KEY}" | tr -d '[:space:]')"
+
+  if [[ ! "${SPARKLE_PRIVATE_KEY}" =~ ^[A-Za-z0-9+/=]+$ ]]; then
+    echo "SPARKLE_PRIVATE_KEY is not valid base64. Re-export with generate_keys -x and update the GitHub secret." >&2
+    exit 1
+  fi
+
   if [[ ${#ARGS[@]} -gt 0 ]]; then
     printf '%s' "${SPARKLE_PRIVATE_KEY}" | "${GENERATE_APPCAST_BIN}" --ed-key-file - "${ARGS[@]}" "${UPDATES_DIR}"
   else
