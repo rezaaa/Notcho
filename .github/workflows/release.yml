@@ -37,6 +37,8 @@ jobs:
 
       - name: Resolve release metadata
         id: meta
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -44,7 +46,11 @@ jobs:
             TAG="${GITHUB_REF_NAME}"
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            VERSION="${{ inputs.version }}"
+            VERSION="${INPUT_VERSION}"
+            if [[ -z "${VERSION}" ]]; then
+              echo "Missing version input for workflow_dispatch." >&2
+              exit 1
+            fi
             TAG="v${VERSION}"
           fi
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
@@ -93,6 +99,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ -z "${SPARKLE_PUBLIC_ED_KEY}" || -z "${SPARKLE_PRIVATE_KEY}" ]]; then
+            echo "::error::Missing Sparkle signing secrets. Set SPARKLE_PUBLIC_ED_KEY and SPARKLE_PRIVATE_KEY in repository secrets."
+            exit 1
+          fi
+
           if [[ -z "${SPARKLE_FEED_URL}" ]]; then
             SPARKLE_FEED_URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml"
           fi
