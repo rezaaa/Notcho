@@ -16,10 +16,41 @@ DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}"
 SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-}"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
+APP_ICON_SOURCE="${APP_ICON_SOURCE:-${ROOT_DIR}/Sources/AppCore/Resources/icon.png}"
+APP_ICON_NAME="${APP_ICON_NAME:-AppIcon}"
 
 APP_BUNDLE_PATH="${OUTPUT_DIR}/${APP_NAME}.app"
 APP_EXECUTABLE_PATH="${APP_BUNDLE_PATH}/Contents/MacOS/${APP_NAME}"
 APP_INFO_PLIST_PATH="${APP_BUNDLE_PATH}/Contents/Info.plist"
+APP_ICON_PATH="${APP_BUNDLE_PATH}/Contents/Resources/${APP_ICON_NAME}.icns"
+
+build_icns_from_png() {
+  local source_png="$1"
+  local output_icns="$2"
+  local iconset_dir="${OUTPUT_DIR}/${APP_ICON_NAME}.iconset"
+
+  if [[ ! -f "${source_png}" ]]; then
+    echo "App icon source not found: ${source_png}" >&2
+    return 1
+  fi
+
+  rm -rf "${iconset_dir}"
+  mkdir -p "${iconset_dir}"
+
+  sips -z 16 16 "${source_png}" --out "${iconset_dir}/icon_16x16.png" >/dev/null
+  sips -z 32 32 "${source_png}" --out "${iconset_dir}/icon_16x16@2x.png" >/dev/null
+  sips -z 32 32 "${source_png}" --out "${iconset_dir}/icon_32x32.png" >/dev/null
+  sips -z 64 64 "${source_png}" --out "${iconset_dir}/icon_32x32@2x.png" >/dev/null
+  sips -z 128 128 "${source_png}" --out "${iconset_dir}/icon_128x128.png" >/dev/null
+  sips -z 256 256 "${source_png}" --out "${iconset_dir}/icon_128x128@2x.png" >/dev/null
+  sips -z 256 256 "${source_png}" --out "${iconset_dir}/icon_256x256.png" >/dev/null
+  sips -z 512 512 "${source_png}" --out "${iconset_dir}/icon_256x256@2x.png" >/dev/null
+  sips -z 512 512 "${source_png}" --out "${iconset_dir}/icon_512x512.png" >/dev/null
+  cp "${source_png}" "${iconset_dir}/icon_512x512@2x.png"
+
+  iconutil -c icns "${iconset_dir}" -o "${output_icns}"
+  rm -rf "${iconset_dir}"
+}
 
 is_macho_file() {
   file "$1" | grep -q "Mach-O"
@@ -131,6 +162,9 @@ for ((i = 1; i < ${#BUILD_BIN_DIRS[@]}; i++)); do
     "${BUILD_BIN_DIRS[i]}/Sparkle.framework"
 done
 
+echo "==> Building app icon"
+build_icns_from_png "${APP_ICON_SOURCE}" "${APP_ICON_PATH}"
+
 cat > "${APP_INFO_PLIST_PATH}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -144,6 +178,8 @@ cat > "${APP_INFO_PLIST_PATH}" <<EOF
   <string>${APP_BUNDLE_ID}</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
+  <key>CFBundleIconFile</key>
+  <string>${APP_ICON_NAME}.icns</string>
   <key>CFBundleName</key>
   <string>${APP_NAME}</string>
   <key>CFBundlePackageType</key>

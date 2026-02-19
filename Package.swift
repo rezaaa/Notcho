@@ -20,7 +20,10 @@ let package = Package(
                 .product(name: "DynamicNotchKit", package: "DynamicNotchKit"),
                 .product(name: "Sparkle", package: "Sparkle")
             ],
-            path: "Sources/AppCore"
+            path: "Sources/AppCore",
+            resources: [
+                .process("Resources")
+            ]
         )
     ]
 )

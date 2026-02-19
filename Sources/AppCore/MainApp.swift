@@ -28,7 +28,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "Notcho")
+            let statusIcon = NSImage(systemSymbolName: "checkmark", accessibilityDescription: "Notcho")
+            statusIcon?.isTemplate = true
+            button.image = statusIcon
         }
 
         if hasSparkleConfiguration() {
