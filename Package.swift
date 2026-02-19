@@ -10,13 +10,15 @@ let package = Package(
         .executable(name: "NotchTasks", targets: ["NotchTasks"])
     ],
     dependencies: [
-        .package(path: "LocalPackages/DynamicNotchKit")
+        .package(path: "LocalPackages/DynamicNotchKit"),
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.7.0")
     ],
     targets: [
         .executableTarget(
             name: "NotchTasks",
             dependencies: [
-                .product(name: "DynamicNotchKit", package: "DynamicNotchKit")
+                .product(name: "DynamicNotchKit", package: "DynamicNotchKit"),
+                .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/NotchTasks"
         )

@@ -1,6 +1,7 @@
 import DynamicNotchKit
 import SwiftUI
 import AppKit
+import Sparkle
 
 @main
 struct NotchTasksApp: App {
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var dataManager: TaskDataManager!
     var notchController: NotchController!
     var statusItem: NSStatusItem?
+    private var updaterController: SPUStandardUpdaterController?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
@@ -29,8 +31,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.image = NSImage(systemSymbolName: "checklist", accessibilityDescription: "NotchTasks")
         }
 
+        if hasSparkleConfiguration() {
+            updaterController = SPUStandardUpdaterController(
+                startingUpdater: true,
+                updaterDelegate: nil,
+                userDriverDelegate: nil
+            )
+        }
+
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Open Notcho", action: #selector(showNotch), keyEquivalent: "t"))
+        if let updaterController {
+            menu.addItem(NSMenuItem.separator())
+            let checkForUpdates = NSMenuItem(
+                title: "Check for Updates...",
+                action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                keyEquivalent: ""
+            )
+            checkForUpdates.target = updaterController
+            menu.addItem(checkForUpdates)
+        }
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem?.menu = menu
@@ -45,6 +65,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await notchController.showNotch(with: dataManager)
         }
+    }
+
+    private func hasSparkleConfiguration() -> Bool {
+        let info = Bundle.main.infoDictionary
+        let hasFeedURL = (info?["SUFeedURL"] as? String)?.isEmpty == false
+        let hasPublicKey = (info?["SUPublicEDKey"] as? String)?.isEmpty == false
+        return hasFeedURL && hasPublicKey
     }
 }
 

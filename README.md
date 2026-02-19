@@ -27,6 +27,12 @@ A beautiful macOS task manager that lives in your MacBook notch. Inspired by iOS
 2. Open `Package.swift` in Xcode
 3. Build and run (⌘R)
 
+## Distribution
+
+For signed `.dmg` builds and Sparkle auto-update setup, see:
+
+- `RELEASE.md`
+
 ## Usage
 
 - **Hover** over the notch to expand

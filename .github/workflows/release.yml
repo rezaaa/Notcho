@@ -1,0 +1,137 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (example: 1.2.3)"
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${{ inputs.version }}"
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Import Developer ID certificate
+        if: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_KEYCHAIN_PASSWORD != '' }}
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CERT_PATH="${RUNNER_TEMP}/certificate.p12"
+          KEYCHAIN_PATH="${RUNNER_TEMP}/build.keychain-db"
+          echo "${APPLE_CERTIFICATE_P12}" | base64 --decode > "${CERT_PATH}"
+
+          security create-keychain -p "${APPLE_KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
+          security set-keychain-settings -lut 21600 "${KEYCHAIN_PATH}"
+          security unlock-keychain -p "${APPLE_KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
+          security import "${CERT_PATH}" -P "${APPLE_CERTIFICATE_PASSWORD}" -A -t cert -f pkcs12 -k "${KEYCHAIN_PATH}"
+          security list-keychains -d user -s "${KEYCHAIN_PATH}" login.keychain-db
+          security default-keychain -d user -s "${KEYCHAIN_PATH}"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${APPLE_KEYCHAIN_PASSWORD}" "${KEYCHAIN_PATH}"
+
+      - name: Prepare notary API key
+        id: notary
+        if: ${{ secrets.APPLE_API_PRIVATE_KEY_P8 != '' && secrets.APPLE_API_KEY_ID != '' && secrets.APPLE_API_ISSUER_ID != '' }}
+        env:
+          APPLE_API_PRIVATE_KEY_P8: ${{ secrets.APPLE_API_PRIVATE_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY_PATH="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s' "${APPLE_API_PRIVATE_KEY_P8}" > "${KEY_PATH}"
+          chmod 600 "${KEY_PATH}"
+          echo "key_path=${KEY_PATH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build release artifacts
+        env:
+          APP_NAME: NotchTasks
+          APP_VERSION: ${{ steps.meta.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          SPARKLE_PUBLIC_ED_KEY: ${{ secrets.SPARKLE_PUBLIC_ED_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SPARKLE_FEED_URL: ${{ secrets.SPARKLE_FEED_URL }}
+          DOWNLOAD_URL_PREFIX: https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.tag }}/
+          APPLE_API_KEY_PATH: ${{ steps.notary.outputs.key_path }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${SPARKLE_FEED_URL}" ]]; then
+            SPARKLE_FEED_URL="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml"
+          fi
+
+          NOTARIZE_FLAG=0
+          if [[ -n "${APPLE_API_KEY_PATH:-}" && -n "${APPLE_API_KEY_ID:-}" && -n "${APPLE_API_ISSUER_ID:-}" ]]; then
+            NOTARIZE_FLAG=1
+          fi
+
+          APP_VERSION="${APP_VERSION}" \
+          BUILD_NUMBER="${BUILD_NUMBER}" \
+          SIGNING_IDENTITY="${SIGNING_IDENTITY}" \
+          SPARKLE_FEED_URL="${SPARKLE_FEED_URL}" \
+          SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY}" \
+          SPARKLE_PRIVATE_KEY="${SPARKLE_PRIVATE_KEY}" \
+          DOWNLOAD_URL_PREFIX="${DOWNLOAD_URL_PREFIX}" \
+          APPLE_API_KEY_PATH="${APPLE_API_KEY_PATH}" \
+          APPLE_API_KEY_ID="${APPLE_API_KEY_ID}" \
+          APPLE_API_ISSUER_ID="${APPLE_API_ISSUER_ID}" \
+          NOTARIZE="${NOTARIZE_FLAG}" \
+          GENERATE_APPCAST=1 \
+          ./scripts/release.sh
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          APP_NAME: NotchTasks
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR="dist/releases/${VERSION}"
+          FILES=(
+            "${ARTIFACT_DIR}/${APP_NAME}-${VERSION}.dmg"
+            "${ARTIFACT_DIR}/${APP_NAME}-${VERSION}.zip"
+            "${ARTIFACT_DIR}/appcast.xml"
+          )
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" "${FILES[@]}" --clobber
+          else
+            gh release create "${TAG}" "${FILES[@]}" \
+              --title "${APP_NAME} ${VERSION}" \
+              --notes "Automated release for ${APP_NAME} ${VERSION}."
+          fi
