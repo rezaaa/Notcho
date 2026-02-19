@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: write
     env:
-      APP_NAME: NotchTasks
+      APP_NAME: Notcho
       APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       APPLE_KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}

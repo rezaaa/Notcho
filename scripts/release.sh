@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-APP_NAME="${APP_NAME:-NotchTasks}"
+APP_NAME="${APP_NAME:-Notcho}"
 APP_VERSION="${APP_VERSION:-}"
 BUILD_NUMBER="${BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(date +%Y%m%d%H%M%S)}}"
 OUTPUT_DIR="${OUTPUT_DIR:-${ROOT_DIR}/dist/releases/${APP_VERSION:-local}}"

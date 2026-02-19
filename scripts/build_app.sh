@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-APP_NAME="${APP_NAME:-NotchTasks}"
-APP_BUNDLE_ID="${APP_BUNDLE_ID:-com.rezamahmoudi.NotchTasks}"
+APP_NAME="${APP_NAME:-Notcho}"
+APP_BUNDLE_ID="${APP_BUNDLE_ID:-com.rezamahmoudi.Notcho}"
+BUILD_PRODUCT_NAME="${BUILD_PRODUCT_NAME:-NotchTasks}"
 APP_VERSION="${APP_VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-$(date +%Y%m%d%H%M%S)}"
 MIN_SYSTEM_VERSION="${MIN_SYSTEM_VERSION:-13.0}"
@@ -28,8 +29,8 @@ echo "==> Building ${APP_NAME} (${CONFIGURATION})"
 DEVELOPER_DIR="${DEVELOPER_DIR}" swift build -c "${CONFIGURATION}"
 BUILD_BIN_DIR="$(DEVELOPER_DIR="${DEVELOPER_DIR}" swift build -c "${CONFIGURATION}" --show-bin-path)"
 
-if [[ ! -f "${BUILD_BIN_DIR}/${APP_NAME}" ]]; then
-  echo "Could not find built executable: ${BUILD_BIN_DIR}/${APP_NAME}" >&2
+if [[ ! -f "${BUILD_BIN_DIR}/${BUILD_PRODUCT_NAME}" ]]; then
+  echo "Could not find built executable: ${BUILD_BIN_DIR}/${BUILD_PRODUCT_NAME}" >&2
   exit 1
 fi
 
@@ -44,7 +45,7 @@ mkdir -p "${APP_BUNDLE_PATH}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE_PATH}/Contents/Frameworks"
 mkdir -p "${APP_BUNDLE_PATH}/Contents/Resources"
 
-cp "${BUILD_BIN_DIR}/${APP_NAME}" "${APP_EXECUTABLE_PATH}"
+cp "${BUILD_BIN_DIR}/${BUILD_PRODUCT_NAME}" "${APP_EXECUTABLE_PATH}"
 chmod +x "${APP_EXECUTABLE_PATH}"
 cp -R "${BUILD_BIN_DIR}/Sparkle.framework" "${APP_BUNDLE_PATH}/Contents/Frameworks/"
 
