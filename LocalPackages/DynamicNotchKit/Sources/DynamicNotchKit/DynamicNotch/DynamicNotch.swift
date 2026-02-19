@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 // MARK: - DynamicNotch
 
@@ -307,7 +308,7 @@ private extension DynamicNotch {
         menubarHeight = screen.menubarHeight
 
         let style = effectiveStyle(for: screen)
-        let view = NSHostingView(rootView: NotchContentView(dynamicNotch: self, style: style))
+        let view = FirstMouseHostingView(rootView: NotchContentView(dynamicNotch: self, style: style))
 
         let panel = DynamicNotchPanel(
             contentRect: .zero,
@@ -335,6 +336,8 @@ private extension DynamicNotch {
         )
 
         panel.layoutIfNeeded()
+        panel.makeFirstResponder(view)
+        panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
 
         windowController = .init(window: panel)
@@ -345,5 +348,11 @@ private extension DynamicNotch {
         guard let windowController else { return }
         windowController.close()
         self.windowController = nil
+    }
+}
+
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
     }
 }
