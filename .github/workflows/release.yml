@@ -42,9 +42,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            TAG="${GITHUB_REF_NAME}"
-            VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
           else
             VERSION="${INPUT_VERSION}"
             if [[ -z "${VERSION}" ]]; then
