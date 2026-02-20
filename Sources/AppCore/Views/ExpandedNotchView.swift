@@ -178,6 +178,7 @@ struct ExpandedNotchView: View {
                                 category: category,
                                 hideCompleted: dataManager.hideCompleted,
                                 isFocused: focusedCategoryId == category.id,
+                                showsFocusControl: dataManager.categories.count > 1,
                                 onTaskToggle: { taskId in
                                     dataManager.toggleTask(categoryId: category.id, taskId: taskId)
                                 },
@@ -251,6 +252,7 @@ struct CategoryBoxView: View {
     let category: TaskCategory
     let hideCompleted: Bool
     let isFocused: Bool
+    let showsFocusControl: Bool
     let onTaskToggle: (UUID) -> Void
     let onTaskDelete: (UUID) -> Void
     let onTaskUpdate: (UUID, String) -> Void
@@ -297,17 +299,19 @@ struct CategoryBoxView: View {
 
                 Spacer()
 
-                Button(action: onFocusToggle) {
-                    Image(systemName: isFocused ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(category.color.color.opacity(0.7))
-                        .frame(width: 20, height: 20)
-                        .background(
-                            Circle()
-                                .fill(category.color.color.opacity(0.15))
-                        )
+                if showsFocusControl {
+                    Button(action: onFocusToggle) {
+                        Image(systemName: isFocused ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(category.color.color.opacity(0.7))
+                            .frame(width: 20, height: 20)
+                            .background(
+                                Circle()
+                                    .fill(category.color.color.opacity(0.15))
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
 
                 Text("\(category.incompleteTasks.count)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))

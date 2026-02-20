@@ -87,10 +87,14 @@ final class NotchController: ObservableObject {
     nonisolated(unsafe) private var clickMonitor: Any?
     nonisolated(unsafe) private var hoverMonitor: Any?
     private var autoCloseTask: Task<Void, Never>?
+    private var triggerActivationTask: Task<Void, Never>?
+    private var lastTriggerActivationAt: Date = .distantPast
     private static let notchWidth: CGFloat = 400
     private static let notchHeight: CGFloat = 450
-    private static let triggerWidth: CGFloat = 180
-    private static let triggerHeight: CGFloat = 20
+    private static let triggerWidth: CGFloat = 160
+    private static let triggerHeight: CGFloat = 14
+    private static let triggerDwellSeconds: TimeInterval = 0.3
+    private static let triggerCooldownSeconds: TimeInterval = 1.0
 
     private init() {}
     
@@ -131,6 +135,7 @@ final class NotchController: ObservableObject {
     }
     
     func hideNotch() async {
+        cancelTriggerActivation()
         await mainNotch?.hide()
         isExpanded = false
         removeClickMonitor()
@@ -161,9 +166,7 @@ final class NotchController: ObservableObject {
             let screen = NSScreen.main
             let screenFrame = screen?.frame ?? .zero
 
-            let triggerX = (screenFrame.width - Self.triggerWidth) / 2
-            let triggerY = screenFrame.height - Self.triggerHeight
-            let triggerFrame = NSRect(x: triggerX, y: triggerY, width: Self.triggerWidth, height: Self.triggerHeight)
+            let triggerFrame = Self.triggerFrame(for: screenFrame)
 
             let notchX = (screenFrame.width - Self.notchWidth) / 2
             let notchY = screenFrame.height - Self.notchHeight
@@ -171,7 +174,9 @@ final class NotchController: ObservableObject {
 
             Task { @MainActor in
                 if triggerFrame.contains(mouseLocation) && !self.isExpanded {
-                    await self.showNotch(with: dataManager)
+                    self.scheduleTriggerActivation(with: dataManager)
+                } else {
+                    self.cancelTriggerActivation()
                 }
 
                 if self.isExpanded {
@@ -183,6 +188,47 @@ final class NotchController: ObservableObject {
                 }
             }
         }
+    }
+
+    private func scheduleTriggerActivation(with dataManager: TaskDataManager) {
+        guard triggerActivationTask == nil else { return }
+        guard Date().timeIntervalSince(lastTriggerActivationAt) >= Self.triggerCooldownSeconds else { return }
+
+        triggerActivationTask = Task { @MainActor in
+            let delayNanos = UInt64(Self.triggerDwellSeconds * 1_000_000_000)
+            try? await Task.sleep(nanoseconds: delayNanos)
+            guard !Task.isCancelled else { return }
+            guard !self.isExpanded else {
+                self.triggerActivationTask = nil
+                return
+            }
+
+            guard let screen = NSScreen.main else {
+                self.triggerActivationTask = nil
+                return
+            }
+
+            let triggerFrame = Self.triggerFrame(for: screen.frame)
+            guard triggerFrame.contains(NSEvent.mouseLocation) else {
+                self.triggerActivationTask = nil
+                return
+            }
+
+            self.lastTriggerActivationAt = Date()
+            self.triggerActivationTask = nil
+            await self.showNotch(with: dataManager)
+        }
+    }
+
+    private func cancelTriggerActivation() {
+        triggerActivationTask?.cancel()
+        triggerActivationTask = nil
+    }
+
+    private static func triggerFrame(for screenFrame: NSRect) -> NSRect {
+        let triggerX = (screenFrame.width - triggerWidth) / 2
+        let triggerY = screenFrame.height - triggerHeight
+        return NSRect(x: triggerX, y: triggerY, width: triggerWidth, height: triggerHeight)
     }
     
     nonisolated private func removeHoverMonitor() {
@@ -222,6 +268,7 @@ final class NotchController: ObservableObject {
     }
     
     deinit {
+        triggerActivationTask?.cancel()
         removeClickMonitor()
         removeHoverMonitor()
     }
