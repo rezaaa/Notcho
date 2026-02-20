@@ -69,6 +69,9 @@ public final class DynamicNotch<Expanded, CompactLeading, CompactTrailing>: Obse
     /// Namespace for matched geometry effect. It is automatically generated if `nil` when the notch is first presented.
     @Published public internal(set) var namespace: Namespace.ID?
 
+    /// Configuration for customizing transition animations and behavior.
+    public var transitionConfiguration = DynamicNotchTransitionConfiguration()
+
     /// Content
     let expandedContent: Expanded
     let compactLeadingContent: CompactLeading
@@ -80,7 +83,7 @@ public final class DynamicNotch<Expanded, CompactLeading, CompactTrailing>: Obse
     @Published private(set) var state: DynamicNotchState = .hidden
     @Published private(set) var notchSize: CGSize = .zero
     @Published private(set) var menubarHeight: CGFloat = 0
-    @Published private(set) var isHovering: Bool = false
+    @Published public private(set) var isHovering: Bool = false
 
     private var closePanelTask: Task<(), Never>? // Used to close the panel after hiding completes
 
@@ -129,6 +132,15 @@ public final class DynamicNotch<Expanded, CompactLeading, CompactTrailing>: Obse
         self.disableCompactTrailing = true
     }
 
+    /// Resolves the effective opening animation (custom override or style default).
+    var effectiveOpeningAnimation: Animation { transitionConfiguration.openingAnimation ?? style.openingAnimation }
+
+    /// Resolves the effective closing animation (custom override or style default).
+    var effectiveClosingAnimation: Animation { transitionConfiguration.closingAnimation ?? style.closingAnimation }
+
+    /// Resolves the effective conversion animation (custom override or style default).
+    var effectiveConversionAnimation: Animation { transitionConfiguration.conversionAnimation ?? style.conversionAnimation }
+
     /// Observes screen parameters changes and re-initializes the window if necessary.
     private func observeScreenParameters() {
         Task {
@@ -160,21 +172,32 @@ public final class DynamicNotch<Expanded, CompactLeading, CompactTrailing>: Obse
 
 extension DynamicNotch {
     public func expand(on screen: NSScreen = NSScreen.screens[0]) async {
-        await _expand(on: screen, skipHide: false)
+        await _expand(on: screen, skipHide: transitionConfiguration.skipIntermediateHides)
     }
 
     func _expand(on screen: NSScreen = NSScreen.screens[0], skipHide: Bool) async {
         guard state != .expanded else { return }
 
         closePanelTask?.cancel()
-        if state == .hidden || windowController?.window?.screen != screen {
-            initializeWindow(screen: screen)
-        }
 
-        Task { @MainActor in
-            if state != .hidden {
+        let needsNewWindow = state == .hidden || windowController?.window?.screen != screen
+
+        if needsNewWindow {
+            // Create window but don't show it yet
+            initializeWindow(screen: screen, orderFront: false)
+
+            // Start animation BEFORE showing window - this eliminates stutter
+            withAnimation(effectiveOpeningAnimation) {
+                self.state = .expanded
+            }
+
+            // Now show window with animation already in progress
+            showWindow()
+        } else {
+            // Window exists and we're transitioning from compact state
+            Task { @MainActor in
                 if !skipHide {
-                    withAnimation(style.closingAnimation) {
+                    withAnimation(effectiveClosingAnimation) {
                         self.state = .hidden
                     }
 
@@ -183,11 +206,7 @@ extension DynamicNotch {
                     try? await Task.sleep(for: .seconds(0.25))
                 }
 
-                withAnimation(style.conversionAnimation) {
-                    self.state = .expanded
-                }
-            } else {
-                withAnimation(style.openingAnimation) {
+                withAnimation(effectiveConversionAnimation) {
                     self.state = .expanded
                 }
             }
@@ -199,7 +218,7 @@ extension DynamicNotch {
     }
 
     public func compact(on screen: NSScreen = NSScreen.screens[0]) async {
-        await _compact(on: screen, skipHide: false)
+        await _compact(on: screen, skipHide: transitionConfiguration.skipIntermediateHides)
     }
 
     func _compact(on screen: NSScreen = NSScreen.screens[0], skipHide: Bool) async {
@@ -216,14 +235,25 @@ extension DynamicNotch {
         }
 
         closePanelTask?.cancel()
-        if state == .hidden || windowController?.window?.screen != screen {
-            initializeWindow(screen: screen)
-        }
 
-        Task { @MainActor in
-            if state != .hidden {
+        let needsNewWindow = state == .hidden || windowController?.window?.screen != screen
+
+        if needsNewWindow {
+            // Create window but don't show it yet
+            initializeWindow(screen: screen, orderFront: false)
+
+            // Start animation BEFORE showing window - this eliminates stutter
+            withAnimation(effectiveOpeningAnimation) {
+                self.state = .compact
+            }
+
+            // Now show window with animation already in progress
+            showWindow()
+        } else {
+            // Window exists and we're transitioning from expanded state
+            Task { @MainActor in
                 if !skipHide {
-                    withAnimation(style.closingAnimation) {
+                    withAnimation(effectiveClosingAnimation) {
                         self.state = .hidden
                     }
 
@@ -232,11 +262,7 @@ extension DynamicNotch {
                     guard self.state == .hidden else { return }
                 }
 
-                withAnimation(style.conversionAnimation) {
-                    self.state = .compact
-                }
-            } else {
-                withAnimation(style.openingAnimation) {
+                withAnimation(effectiveConversionAnimation) {
                     self.state = .compact
                 }
             }
@@ -270,17 +296,38 @@ extension DynamicNotch {
             return
         }
 
-        withAnimation(style.closingAnimation) {
+        withAnimation(effectiveClosingAnimation) {
             state = .hidden
             isHovering = false
         }
 
         closePanelTask?.cancel()
         closePanelTask = Task {
-            try? await Task.sleep(for: .seconds(0.4)) // Wait for animation to complete
+            try? await Task.sleep(for: .seconds(0.35)) // Let close animation mostly finish before fading out
+            guard Task.isCancelled != true else { return }
+
+            // Fade out window to hide any closing glitches.
+            await fadeOutWindow()
+
             guard Task.isCancelled != true else { return }
             deinitializeWindow()
             completion?()
+        }
+    }
+
+    /// Fades out the window smoothly before closing.
+    @MainActor
+    private func fadeOutWindow() async {
+        guard let window = windowController?.window else { return }
+
+        await withCheckedContinuation { continuation in
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.15
+                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                window.animator().alphaValue = 0
+            } completionHandler: {
+                continuation.resume()
+            }
         }
     }
 }
@@ -300,7 +347,8 @@ private extension DynamicNotch {
 
     /// Initializes the window for the DynamicNotch.
     /// - Parameter screen: the screen to initialize the window on.
-    func initializeWindow(screen: NSScreen) {
+    /// - Parameter orderFront: whether to order the window front immediately (default: true)
+    func initializeWindow(screen: NSScreen, orderFront: Bool = true) {
         // so that we don't have a duplicate window
         deinitializeWindow()
 
@@ -337,10 +385,30 @@ private extension DynamicNotch {
 
         panel.layoutIfNeeded()
         panel.makeFirstResponder(view)
-        panel.makeKeyAndOrderFront(nil)
-        panel.orderFrontRegardless()
+
+        if orderFront {
+            panel.makeKeyAndOrderFront(nil)
+            panel.orderFrontRegardless()
+        }
 
         windowController = .init(window: panel)
+    }
+
+    /// Shows the window if it exists but hasn't been ordered front yet.
+    func showWindow() {
+        guard let window = windowController?.window else { return }
+
+        // Start invisible to hide any initial frame glitches.
+        window.alphaValue = 0
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+
+        // Fade in smoothly.
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+        }
     }
 
     /// Deinitializes the window and removes it from the screen.

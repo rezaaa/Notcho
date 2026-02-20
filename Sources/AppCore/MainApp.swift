@@ -91,9 +91,9 @@ final class NotchController: ObservableObject {
     private var lastTriggerActivationAt: Date = .distantPast
     private static let notchWidth: CGFloat = 400
     private static let notchHeight: CGFloat = 450
-    private static let triggerWidth: CGFloat = 160
-    private static let triggerHeight: CGFloat = 14
-    private static let triggerDwellSeconds: TimeInterval = 0.3
+    private static let triggerWidth: CGFloat = 220
+    private static let triggerHeight: CGFloat = 20
+    private static let triggerDwellSeconds: TimeInterval = 0.5
     private static let triggerCooldownSeconds: TimeInterval = 1.0
 
     private init() {}
